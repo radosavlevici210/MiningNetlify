@@ -293,4 +293,9 @@ export class ProductionMiningEngine {
       });
     });
   }
+
+  destroy() {
+    this.stopMining();
+    this.callbacks = {};
+  }
 }
