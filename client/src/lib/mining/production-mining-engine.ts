@@ -9,6 +9,7 @@ export class ProductionMiningEngine {
   private hashCount = 0;
   private startTime = 0;
   private totalShares = { accepted: 0, rejected: 0 };
+  private performanceInterval: number | null = null;
   
   private callbacks: {
     onHashrate?: (hashrate: number) => void;
@@ -24,14 +25,11 @@ export class ProductionMiningEngine {
 
   private async initializeEngine() {
     try {
-      // Check for WebAssembly support
       if (typeof WebAssembly === 'undefined') {
         throw new Error('WebAssembly not supported in this browser');
       }
 
-      // Initialize performance monitoring
       this.startPerformanceMonitoring();
-      
       console.log('Production mining engine initialized');
     } catch (error) {
       console.error('Failed to initialize mining engine:', error);
@@ -53,32 +51,29 @@ export class ProductionMiningEngine {
     walletAddress: string;
     poolUrl: string;
     workerName: string;
-    threadCount: number;
+    chain: string;
     intensity: number;
-  }): Promise<void> {
+    threadCount: number;
+  }) {
     try {
+      this.validateConfig(config);
+      
       if (this.isActive) {
         throw new Error('Mining is already active');
       }
 
-      // Validate configuration
-      this.validateConfig(config);
+      this.isActive = true;
+      this.startTime = Date.now();
+      this.hashCount = 0;
+      this.totalShares = { accepted: 0, rejected: 0 };
 
-      // Initialize stratum connection
-      this.stratumClient = new RealStratumClient(
-        config.poolUrl,
-        config.walletAddress,
-        config.workerName
-      );
-
+      // Initialize Stratum client
+      this.stratumClient = new RealStratumClient();
       this.stratumClient.setCallbacks({
-        onConnect: () => {
-          console.log('Connected to mining pool');
-        },
         onJob: (job) => {
           this.currentJob = job;
-          this.callbacks.onJob?.(job);
           this.updateWorkersWithJob(job);
+          this.callbacks.onJob?.(job);
         },
         onShare: (accepted, error) => {
           if (accepted) {
@@ -86,57 +81,46 @@ export class ProductionMiningEngine {
           } else {
             this.totalShares.rejected++;
           }
-          this.callbacks.onShare?.(accepted, { accepted, error });
+          this.callbacks.onShare?.(accepted, error);
         },
         onError: (error) => {
-          console.error('Pool error:', error);
           this.callbacks.onError?.(error);
         }
       });
+      
+      this.stratumClient.connect(config.poolUrl, config.walletAddress, config.workerName);
 
-      // Connect to pool
-      await this.stratumClient.connect();
-
-      // Start mining workers
+      // Start workers
       await this.startWorkers(config.threadCount, config.intensity);
 
-      this.isActive = true;
-      this.startTime = Date.now();
-
-      console.log(`Mining started with ${config.threadCount} workers at intensity ${config.intensity}`);
-
+      console.log(`Mining started with ${config.threadCount} workers on ${config.chain}`);
+      
     } catch (error) {
+      this.isActive = false;
       console.error('Failed to start mining:', error);
-      this.callbacks.onError?.(error instanceof Error ? error.message : String(error));
+      this.callbacks.onError?.(`Failed to start mining: ${error}`);
       throw error;
     }
   }
 
   private validateConfig(config: any) {
-    if (!config.walletAddress || config.walletAddress.length < 20) {
-      throw new Error('Valid wallet address required');
+    if (!config.walletAddress || !config.poolUrl || !config.workerName) {
+      throw new Error('Missing required configuration: wallet address, pool URL, or worker name');
     }
-    if (!config.poolUrl || !config.poolUrl.includes('://')) {
-      throw new Error('Valid pool URL required');
-    }
-    if (!config.workerName || config.workerName.length < 1) {
-      throw new Error('Worker name required');
-    }
-    if (config.threadCount < 1 || config.threadCount > 32) {
-      throw new Error('Thread count must be between 1-32');
+    if (config.threadCount < 1 || config.threadCount > 16) {
+      throw new Error('Thread count must be between 1 and 16');
     }
     if (config.intensity < 1 || config.intensity > 10) {
-      throw new Error('Intensity must be between 1-10');
+      throw new Error('Intensity must be between 1 and 10');
     }
   }
 
   private async startWorkers(threadCount: number, intensity: number): Promise<void> {
-    // Terminate existing workers
-    this.stopWorkers();
+    const workerPromises = [];
 
     for (let i = 0; i < threadCount; i++) {
       try {
-        const worker = new Worker('/workers/mining-worker.js');
+        const worker = new Worker('/workers/production-mining-worker.js');
         
         worker.onmessage = (event) => {
           this.handleWorkerMessage(event.data, i);
@@ -144,10 +128,9 @@ export class ProductionMiningEngine {
 
         worker.onerror = (error) => {
           console.error(`Worker ${i} error:`, error);
-          this.callbacks.onError?.(error.message);
+          this.callbacks.onError?.(`Worker ${i} error: ${error.message}`);
         };
 
-        // Start worker with current job if available
         if (this.currentJob) {
           worker.postMessage({
             type: 'start',
@@ -166,56 +149,45 @@ export class ProductionMiningEngine {
 
   private handleWorkerMessage(data: any, workerId: number) {
     switch (data.type) {
-      case 'hashrate':
-        this.hashCount += data.data.rate;
+      case 'hash_found':
+        this.hashCount += data.hashCount || 1;
+        if (data.result && data.result.meetsTarget) {
+          this.handleShare(data.result);
+        }
         break;
-        
-      case 'share':
-        this.handleShare(data.data);
-        break;
-        
+      
       case 'error':
-        console.error(`Worker ${workerId} error:`, data.data.message);
-        this.callbacks.onError?.(data.data.message);
+        console.error(`Worker ${workerId} error:`, data.error);
+        this.callbacks.onError?.(data.error);
         break;
-        
-      case 'status':
-        console.log(`Worker ${workerId}: ${data.data.message}`);
+      
+      case 'hashrate':
+        // Individual worker hashrate update
         break;
+      
+      default:
+        console.log(`Unknown message from worker ${workerId}:`, data);
     }
   }
 
   private handleShare(shareData: any) {
-    if (!this.stratumClient || !this.currentJob) {
-      console.warn('Cannot submit share: no pool connection or job');
-      return;
+    if (this.stratumClient) {
+      this.stratumClient.submitShare(shareData);
     }
-
-    // Submit share to pool
-    this.stratumClient.submitShare(
-      this.currentJob.jobId,
-      shareData.nonce,
-      shareData.mixHash,
-      shareData.hash
-    );
-
-    console.log('Share submitted:', {
-      job: this.currentJob.jobId,
-      nonce: shareData.nonce.substring(0, 16) + '...'
-    });
   }
 
   private updateWorkersWithJob(job: MiningJob) {
     this.workers.forEach((worker, index) => {
       worker.postMessage({
-        type: 'update_job',
-        job
+        type: 'new_job',
+        job,
+        workerId: index
       });
     });
   }
 
   private startPerformanceMonitoring() {
-    setInterval(() => {
+    this.performanceInterval = window.setInterval(() => {
       if (this.isActive) {
         const uptime = Math.floor((Date.now() - this.startTime) / 1000);
         const avgHashrate = this.hashCount / Math.max(uptime, 1);
@@ -235,27 +207,33 @@ export class ProductionMiningEngine {
     try {
       this.isActive = false;
       
-      // Stop workers
       this.stopWorkers();
       
-      // Disconnect from pool
       if (this.stratumClient) {
         this.stratumClient.disconnect();
         this.stratumClient = null;
       }
 
+      if (this.performanceInterval) {
+        clearInterval(this.performanceInterval);
+        this.performanceInterval = null;
+      }
+
       console.log('Mining stopped');
-      
     } catch (error) {
       console.error('Error stopping mining:', error);
-      this.callbacks.onError?.(error instanceof Error ? error.message : String(error));
+      this.callbacks.onError?.(`Error stopping mining: ${error}`);
     }
   }
 
   private stopWorkers() {
-    this.workers.forEach(worker => {
-      worker.postMessage({ type: 'stop' });
-      worker.terminate();
+    this.workers.forEach((worker, index) => {
+      try {
+        worker.postMessage({ type: 'stop' });
+        worker.terminate();
+      } catch (error) {
+        console.error(`Error stopping worker ${index}:`, error);
+      }
     });
     this.workers = [];
   }
@@ -265,19 +243,21 @@ export class ProductionMiningEngine {
   }
 
   getHashrate(): number {
-    if (!this.isActive || !this.startTime) return 0;
-    const elapsed = Math.max((Date.now() - this.startTime) / 1000, 1);
-    return this.hashCount / elapsed;
+    if (!this.isActive || this.startTime === 0) return 0;
+    const uptime = Math.floor((Date.now() - this.startTime) / 1000);
+    return this.hashCount / Math.max(uptime, 1);
   }
 
   getStats() {
+    const uptime = this.isActive ? Math.floor((Date.now() - this.startTime) / 1000) : 0;
     return {
       isActive: this.isActive,
-      uptime: this.isActive ? Math.floor((Date.now() - this.startTime) / 1000) : 0,
+      uptime,
       hashrate: this.getHashrate(),
-      shares: this.totalShares,
+      hashCount: this.hashCount,
+      shares: { ...this.totalShares },
       workers: this.workers.length,
-      poolConnected: this.stratumClient?.isConnected() || false
+      connectionStatus: this.stratumClient?.getConnectionStatus() || 'disconnected'
     };
   }
 

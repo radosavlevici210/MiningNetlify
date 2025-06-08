@@ -19,206 +19,127 @@ export function useMining() {
 
   // Subscribe to state changes
   useEffect(() => {
-    const unsubscribe = miningStateManager.subscribe((newState) => {
-      setState(newState);
-      setStats(miningStateManager.getStats());
-      setLogs(miningStateManager.getLogs());
-      setHashrateHistory(miningStateManager.getHashrateHistory());
-      setEarningsHistory(miningStateManager.getEarningsHistory());
-    });
+    const unsubscribeState = miningStateManager.subscribe('state', setState);
+    const unsubscribeStats = miningStateManager.subscribe('stats', setStats);
+    const unsubscribeLogs = miningStateManager.subscribe('logs', setLogs);
+    const unsubscribeHashrate = miningStateManager.subscribe('hashrateHistory', setHashrateHistory);
+    const unsubscribeEarnings = miningStateManager.subscribe('earningsHistory', setEarningsHistory);
 
-    return unsubscribe;
+    return () => {
+      unsubscribeState();
+      unsubscribeStats();
+      unsubscribeLogs();
+      unsubscribeHashrate();
+      unsubscribeEarnings();
+    };
   }, []);
 
   // Initialize mining engine
   useEffect(() => {
-    const initialize = async () => {
-      try {
-        if (!ethashEngine.isReady()) {
-          miningStateManager.addLog({
-            level: 'info',
-            source: 'ENGINE',
-            message: 'Initializing Ethash mining engine...'
+    if (!isInitialized) {
+      miningEngine.setCallbacks({
+        onHashrate: (hashrate: number) => {
+          miningStateManager.updateHashrate(hashrate);
+        },
+        onShare: (accepted: boolean, share: any) => {
+          miningStateManager.addShare(accepted);
+          miningStateManager.addLog(
+            accepted ? 'success' : 'warning',
+            'Mining',
+            accepted ? 'Share accepted' : 'Share rejected'
+          );
+        },
+        onError: (error: string) => {
+          miningStateManager.addLog('error', 'Mining', error);
+          setError(error);
+        },
+        onJob: (job: any) => {
+          miningStateManager.addLog('info', 'Pool', `New job received: ${job.jobId}`);
+        },
+        onStats: (stats: any) => {
+          miningStateManager.updateStats({
+            hashrate: stats.hashrate,
+            uptime: stats.uptime,
+            temperature: 65,
+            powerConsumption: 150
           });
         }
-
-        // Set up engine callbacks
-        ethashEngine.setCallbacks({
-          onHashrate: (hashrate) => {
-            miningStateManager.updateStats({ hashrate });
-            miningStateManager.updateState({ currentHashrate: hashrate });
-          },
-          onShare: (result) => {
-            if (stratumClient && result.meetsTarget) {
-              // Submit share to pool
-              stratumClient.submitShare('current_job', '0x12345', result.mixHash, result.result);
-            }
-          },
-          onError: (error) => {
-            setError(error);
-            miningStateManager.addLog({
-              level: 'error',
-              source: 'ENGINE',
-              message: error
-            });
-          }
-        });
-
-        setIsInitialized(true);
-        miningStateManager.addLog({
-          level: 'success',
-          source: 'ENGINE',
-          message: 'Mining engine initialized successfully'
-        });
-      } catch (err) {
-        const errorMessage = err instanceof Error ? err.message : 'Unknown error';
-        setError(errorMessage);
-        miningStateManager.addLog({
-          level: 'error',
-          source: 'ENGINE',
-          message: `Failed to initialize: ${errorMessage}`
-        });
-      }
-    };
-
-    initialize();
-  }, [ethashEngine]);
-
-  // Update uptime
-  useEffect(() => {
-    let interval: NodeJS.Timeout;
-    
-    if (state.isActive) {
-      interval = setInterval(() => {
-        miningStateManager.updateUptime();
-      }, 1000);
+      });
+      setIsInitialized(true);
     }
 
     return () => {
-      if (interval) {
-        clearInterval(interval);
+      if (miningEngine) {
+        miningEngine.destroy();
       }
     };
-  }, [state.isActive]);
+  }, [miningEngine, isInitialized]);
 
   const startMining = useCallback(async (config: MiningConfiguration) => {
     try {
       setError(null);
+      miningStateManager.addLog('info', 'System', 'Starting mining...');
       
-      if (!isInitialized) {
-        throw new Error('Mining engine not initialized');
+      await miningEngine.startMining({
+        walletAddress: config.walletAddress,
+        poolUrl: config.poolUrl,
+        workerName: config.workerName,
+        chain: config.chain,
+        intensity: config.intensity,
+        threadCount: config.threadCount
+      });
+
+      miningStateManager.updateState({
+        isActive: true,
+        connectionStatus: 'connected',
+        currentChain: config.chain,
+        startTime: Date.now()
+      });
+
+      // Initialize web3 for blockchain interaction
+      try {
+        await web3Integration.initialize(config.chain);
+      } catch (web3Error) {
+        console.warn('Web3 initialization failed:', web3Error);
+        miningStateManager.addLog('warning', 'Web3', 'Blockchain integration unavailable');
       }
 
-      miningStateManager.startMining();
+      miningStateManager.addLog('success', 'System', `Mining started on ${config.chain}`);
       
-      // Create stratum client
-      const client = new StratumClient(config.poolUrl, config.walletAddress, config.workerName);
-      
-      client.setCallbacks({
-        onConnect: () => {
-          miningStateManager.updateState({ connectionStatus: 'connected' });
-          miningStateManager.addLog({
-            level: 'success',
-            source: 'POOL',
-            message: `Connected to ${config.poolUrl}`
-          });
-        },
-        onDisconnect: () => {
-          miningStateManager.updateState({ connectionStatus: 'disconnected' });
-          miningStateManager.addLog({
-            level: 'warning',
-            source: 'POOL',
-            message: 'Disconnected from pool'
-          });
-        },
-        onJob: (job) => {
-          miningStateManager.addLog({
-            level: 'info',
-            source: 'POOL',
-            message: `New job received: ${job.jobId}`
-          });
-          
-          // Start mining with new job
-          ethashEngine.startMining(job, config.threadCount, config.intensity);
-        },
-        onShare: (accepted, error) => {
-          miningStateManager.incrementShares(accepted);
-          if (!accepted && error) {
-            miningStateManager.addLog({
-              level: 'error',
-              source: 'POOL',
-              message: `Share rejected: ${error}`
-            });
-          }
-        },
-        onError: (error) => {
-          setError(error);
-          miningStateManager.addLog({
-            level: 'error',
-            source: 'POOL',
-            message: error
-          });
-        }
+    } catch (error: any) {
+      console.error('Failed to start mining:', error);
+      miningStateManager.addLog('error', 'System', `Failed to start mining: ${error.message}`);
+      miningStateManager.updateState({
+        isActive: false,
+        connectionStatus: 'error'
       });
-
-      await client.connect();
-      setStratumClient(client);
-
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Unknown error';
-      setError(errorMessage);
-      miningStateManager.addLog({
-        level: 'error',
-        source: 'SYSTEM',
-        message: `Failed to start mining: ${errorMessage}`
-      });
-      miningStateManager.stopMining();
+      setError(error.message);
+      throw error;
     }
-  }, [isInitialized, ethashEngine]);
+  }, [miningEngine]);
 
   const stopMining = useCallback(() => {
     try {
-      miningStateManager.stopMining();
-      ethashEngine.stopMining();
-      
-      if (stratumClient) {
-        stratumClient.disconnect();
-        setStratumClient(null);
-      }
-
-      miningStateManager.addLog({
-        level: 'info',
-        source: 'SYSTEM',
-        message: 'Mining stopped successfully'
+      miningEngine.stopMining();
+      miningStateManager.updateState({
+        isActive: false,
+        connectionStatus: 'disconnected',
+        startTime: null
       });
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Unknown error';
-      setError(errorMessage);
-      miningStateManager.addLog({
-        level: 'error',
-        source: 'SYSTEM',
-        message: `Error stopping mining: ${errorMessage}`
-      });
+      miningStateManager.addLog('info', 'System', 'Mining stopped');
+      setError(null);
+    } catch (error: any) {
+      console.error('Failed to stop mining:', error);
+      miningStateManager.addLog('error', 'System', `Failed to stop mining: ${error.message}`);
+      setError(error.message);
     }
-  }, [ethashEngine, stratumClient]);
+  }, [miningEngine]);
 
   const clearLogs = useCallback(() => {
     miningStateManager.clearLogs();
   }, []);
 
-  const getBalance = useCallback(async (address: string) => {
-    try {
-      const balance = await web3Integration.getBalance(address);
-      miningStateManager.updateState({ balance: parseFloat(balance) });
-      return balance;
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Unknown error';
-      setError(errorMessage);
-      throw err;
-    }
-  }, []);
-
-  const formatUptime = useCallback((seconds: number) => {
+  const formatUptime = useCallback((seconds: number): string => {
     const hours = Math.floor(seconds / 3600);
     const minutes = Math.floor((seconds % 3600) / 60);
     const secs = seconds % 60;
@@ -232,11 +153,48 @@ export function useMining() {
     }
   }, []);
 
-  const getShareRatio = useCallback(() => {
-    const total = state.shares.accepted + state.shares.rejected;
-    if (total === 0) return 0;
-    return ((state.shares.accepted / total) * 100).toFixed(1);
-  }, [state.shares]);
+  const updateIntensity = useCallback((intensity: number) => {
+    try {
+      miningEngine.updateIntensity(intensity);
+      miningStateManager.addLog('info', 'System', `Mining intensity updated to ${intensity}`);
+    } catch (error: any) {
+      console.error('Failed to update intensity:', error);
+      miningStateManager.addLog('error', 'System', `Failed to update intensity: ${error.message}`);
+    }
+  }, [miningEngine]);
+
+  const getMiningStats = useCallback(() => {
+    return miningEngine.getStats();
+  }, [miningEngine]);
+
+  const getCurrentJob = useCallback(() => {
+    return miningEngine.getCurrentJob();
+  }, [miningEngine]);
+
+  const isRunning = useCallback(() => {
+    return miningEngine.isRunning();
+  }, [miningEngine]);
+
+  const getHashrate = useCallback(() => {
+    return miningEngine.getHashrate();
+  }, [miningEngine]);
+
+  // Pool information (mock data for now, would be real in production)
+  const getPoolInfo = useCallback(() => {
+    return {
+      name: 'ETC Pool',
+      url: 'stratum+tcp://etc-us-east1.nanopool.org:19999',
+      status: 'online' as const,
+      latency: 45,
+      difficulty: '4.295G',
+      blockHeight: 18750000,
+      networkHashrate: '24.5 TH/s'
+    };
+  }, []);
+
+  const getConnectionStatus = useCallback(() => {
+    return stratumClient?.getConnectionStatus() || state.connectionStatus;
+  }, [stratumClient, state.connectionStatus]);
 
   return {
     // State
@@ -245,21 +203,24 @@ export function useMining() {
     logs,
     hashrateHistory,
     earningsHistory,
-    isInitialized,
     error,
-    
+    isInitialized,
+
     // Actions
     startMining,
     stopMining,
     clearLogs,
-    getBalance,
+    updateIntensity,
     
-    // Computed values
-    formatUptime,
-    getShareRatio,
+    // Getters
+    getMiningStats,
+    getCurrentJob,
+    isRunning,
+    getHashrate,
+    getPoolInfo,
+    getConnectionStatus,
     
-    // Pool info
-    poolInfo: stratumClient?.getPoolInfo() || null,
-    isConnected: stratumClient?.isConnected() || false
+    // Utilities
+    formatUptime
   };
 }
