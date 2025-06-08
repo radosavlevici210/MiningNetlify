@@ -1,0 +1,905 @@
+// Compress the mix
+const cmix = compressMix(mix);
+
+```
+  // Final hash
+  const finalHash = CryptoJS.SHA3(seed + cmix, { outputLength: 256 }).toString();
+  
+  return {
+    mixHash: cmix,
+    result: finalHash
+  };
+}
+
+// Compress mix
+function compressMix(mix) {
+  let result = '';
+  const chunks = Math.floor(mix.length / 4);
+  
+  for (let i = 0; i < chunks; i++) {
+    const val = parseInt(mix.substring(i * 4, (i + 1) * 4), 16);
+    result += val.toString(16).padStart(4, '0');
+  }
+  
+  return result;
+}
+
+// FNV hash function
+function fnv(a, b) {
+  return ((a * 0x01000000 + 0x0000193) ^ b) >>> 0;
+}
+
+// Calculate DAG item for a given index
+function calculateDagItem(index) {
+  // Get the cache item
+  const cacheIndex = index % lightCache.length;
+  let item = lightCache[cacheIndex];
+  
+  // Mix in index
+  item = xorHex(item, index.toString(16).padStart(64, '0'));
+  
+  // Apply SHA3
+  item = CryptoJS.SHA3(item, { outputLength: 512 }).toString();
+  
+  // More mixing based on cache items
+  for (let i = 0; i < DATASET_PARENTS; i++) {
+    const parent = fnv(index ^ i, parseInt(item.substring(i % 64, i % 64 + 8), 16)) % lightCache.length;
+    item = xorHex(item, lightCache[parent]);
+  }
+  
+  // Final hash
+  return CryptoJS.SHA3(item, { outputLength: 512 }).toString();
+}
+
+// Check if a hash meets the target difficulty
+function checkDifficulty(hash, target) {
+  // Convert hash to BigInt
+  const hashValue = BigInt(`0x${hash}`);
+  
+  // Target is 2^256 / difficulty
+  const targetValue = BigInt(`0x${target}`);
+  
+  return hashValue <= targetValue;
+}
+
+// Main mining loop
+function mine() {
+  if (!running || !job) return;
+  
+  // Process multiple nonces for better efficiency
+  const startTime = Date.now();
+  let processed = 0;
+  
+  for (let i = 0; i < intensity && running; i++) {
+    // Create header from job data
+    const header = createHeader(job, nonce);
+    
+    // Calculate Ethash
+    const result = ethash(header, nonce);
+    
+    // Check if the hash meets the target difficulty
+    if (checkDifficulty(result.result, job.target)) {
+      // Found a valid share
+      self.postMessage({
+        type: 'share_found',
+        job: job,
+        nonce: nonce,
+        mixHash: result.mixHash,
+        hash: result.result
+      });
+    }
+    
+    nonce++;
+    hashCount++;
+    processed++;
+  }
+  
+  // Report hashrate periodically
+  const now = Date.now();
+  if (now - lastReportTime >= 2000) { // Report every 2 seconds
+    const hashrate = hashCount / ((now - lastReportTime) / 1000);
+    self.postMessage({
+      type: 'hashrate',
+      hashrate: hashrate
+    });
+    
+    hashCount = 0;
+    lastReportTime = now;
+  }
+  
+  // Continue mining with a small timeout to avoid freezing
+  setTimeout(mine, 0);
+}
+
+// Create header from job data
+function createHeader(job, nonce) {
+  // Combine job data as per Ethash algorithm
+  return job.prevHash + job.coinbase + job.uncle + job.difficulty + job.number + job.gasLimit + job.gasUsed + job.timestamp + job.extraData + job.mixHash + job.nonce;
+}
+```
+
+  </script>
+
+  <script>
+    // Global variables
+    let workers = [];
+    let mining = false;
+    let shares = { accepted: 0, rejected: 0 };
+    let totalHashrate = 0;
+    let poolBalance = 0.00000;
+    let hashrateHistory = Array(20).fill(0);
+    let hashrateInterval;
+    let withdrawalOption = 'standard';
+    let web3 = null;
+    let stratumSocket = null;
+    let currentJob = null;
+    let extraNonce1 = null;
+    let extraNonce2Size = 0;
+    let workerId = 0;
+    
+    // DOM Elements
+    const startMiningButton = document.getElementById('start-mining');
+    const stopMiningButton = document.getElementById('stop-mining');
+    const hashRateDisplay = document.getElementById('hashrate');
+    const sharesDisplay = document.getElementById('shares');
+    const poolBalanceDisplay = document.getElementById('pool-balance');
+    const withdrawBalanceDisplay = document.getElementById('withdraw-balance');
+    const miningStatusDisplay = document.getElementById('mining-status');
+    const logsElement = document.getElementById('logs');
+    const networkStatusDisplay = document.getElementById('network-status');
+    const withdrawSection = document.getElementById('withdraw-section');
+    const withdrawOptions = document.querySelectorAll('.withdraw-option');
+    const withdrawalSuccessDisplay = document.getElementById('withdrawal-success');
+    const withdrawalErrorDisplay = document.getElementById('withdrawal-error');
+    const errorMessageDisplay = document.getElementById('error-message');
+    const txHashDisplay = document.getElementById('tx-hash');
+    const confirmWithdrawButton = document.getElementById('confirm-withdraw');
+    const withdrawAmountInput = document.getElementById('withdraw-amount');
+    const withdrawAddressInput = document.getElementById('withdraw-address');
+    const transactionHistory = document.getElementById('transaction-history');
+    
+    // Config Elements
+    const walletAddressInput = document.getElementById('wallet-address');
+    const poolUrlInput = document.getElementById('pool-url');
+    const workerNameInput = document.getElementById('worker-name');
+    const chainSelectInput = document.getElementById('chain-select');
+    const threadsInput = document.getElementById('threads');
+    const intensityInput = document.getElementById('intensity');
+    
+    // Modal Elements
+    const withdrawalModal = document.getElementById('withdrawal-modal');
+    const modalCloseButton = document.getElementById('modal-close');
+    const modalCancelButton = document.getElementById('modal-cancel');
+    const modalConfirmButton = document.getElementById('modal-confirm');
+    const modalAmount = document.getElementById('modal-amount');
+    const modalAddress = document.getElementById('modal-address');
+    const gasSlider = document.getElementById('gas-slider');
+    const gasFeeDisplay = document.getElementById('gas-fee');
+    const gasTimeDisplay = document.getElementById('gas-time');
+    const confirmationSpinner = document.getElementById('confirmation-spinner');
+    
+    // Initialize hashrate chart
+    const hashrateChart = new Chart(document.getElementById('hashrate-chart').getContext('2d'), {
+      type: 'line',
+      data: {
+        labels: Array(20).fill(''),
+        datasets: [{
+          label: 'Hashrate (MH/s)',
+          data: hashrateHistory,
+          borderColor: '#3498db',
+          tension: 0.1,
+          fill: false
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        scales: {
+          y: {
+            beginAtZero: true
+          }
+        }
+      }
+    });
+    
+    // Add log entry
+    function addLog(message) {
+      const now = new Date();
+      const timestamp = now.toLocaleTimeString();
+      const logEntry = document.createElement('div');
+      logEntry.className = 'log-entry';
+      logEntry.innerHTML = `<span class="timestamp">[${timestamp}]</span> ${message}`;
+      logsElement.appendChild(logEntry);
+      logsElement.scrollTop = logsElement.scrollHeight;
+    }
+    
+    // Initialize Web3
+    async function initWeb3() {
+      if (window.ethereum) {
+        window.web3 = new Web3(window.ethereum);
+        try {
+          // Request account access
+          await window.ethereum.enable();
+          addLog('Web3 initialized with MetaMask');
+          return true;
+        } catch (error) {
+          // User denied account access
+          addLog('Please allow MetaMask access to use withdrawal features');
+          return false;
+        }
+      } else if (window.web3) {
+        window.web3 = new Web3(window.web3.currentProvider);
+        addLog('Web3 detected');
+        return true;
+      } else {
+        // Fallback - use a provider for read-only functionality
+        window.web3 = new Web3(new Web3.providers.HttpProvider('https://ethereum-mainnet.rpc.io'));
+        addLog('No Web3 detected. Fallback to read-only mode');
+        return true;
+      }
+    }
+    
+    // Initialize the mining page
+    async function initialize() {
+      try {
+        // Check Web3 availability for withdrawals
+        const web3Available = await initWeb3();
+        
+        // Set default threads to CPU cores
+        threadsInput.value = Math.max(1, Math.min(16, navigator.hardwareConcurrency || 4));
+        
+        // Create the worker script blob
+        const workerScript = document.getElementById('worker-script').textContent;
+        const workerBlob = new Blob([workerScript], { type: 'application/javascript' });
+        const workerUrl = URL.createObjectURL(workerBlob);
+        
+        // Store the URL for later use
+        window.workerUrl = workerUrl;
+        
+        networkStatusDisplay.textContent = 'Ready';
+        networkStatusDisplay.style.color = '#2ecc71';
+        addLog('Mining modules initialized successfully');
+        
+        startMiningButton.disabled = false;
+      } catch (error) {
+        console.error('Initialization error:', error);
+        addLog(`Error during initialization: ${error.message}`);
+        networkStatusDisplay.textContent = 'Initialization Error';
+        networkStatusDisplay.style.color = '#e74c3c';
+      }
+    }
+    
+    // Connect to mining pool
+    function connectToPool(url, username, password = 'x') {
+      return new Promise((resolve, reject) => {
+        try {
+          // Extract host and port from stratum URL
+          const cleanUrl = url.replace('stratum+tcp://', '');
+          const [host, portStr] = cleanUrl.split(':');
+          const port = parseInt(portStr, 10);
+          
+          // In a real implementation, we would use a WebSocket to proxy to the pool
+          // For this code, we'll create a WebSocket connection to a proxy server
+          const socket = new WebSocket(`wss://stratumproxy.example.com/?host=${host}&port=${port}`);
+          
+          socket.onopen = () => {
+            addLog(`Connected to stratum proxy for ${host}:${port}`);
+            
+            // Send subscribe request
+            const subscribeRequest = {
+              id: 1,
+              method: 'mining.subscribe',
+              params: ['EthereumStratum/1.0.0', null]
+            };
+            
+            socket.send(JSON.stringify(subscribeRequest));
+          };
+          
+          socket.onmessage = (event) => {
+            const response = JSON.parse(event.data);
+            
+            if (response.id === 1) {
+              // Handle subscribe response
+              if (response.error) {
+                reject(new Error(`Subscribe error: ${response.error}`));
+                return;
+              }
+              
+              // Successfully subscribed
+              const result = response.result;
+              extraNonce1 = result[1];
+              extraNonce2Size = result[2];
+              
+              addLog(`Subscribed to mining pool. ExtraNonce1: ${extraNonce1}`);
+              
+              // Send authorize request
+              const authorizeRequest = {
+                id: 2,
+                method: 'mining.authorize',
+                params: [username, password]
+              };
+              
+              socket.send(JSON.stringify(authorizeRequest));
+            } else if (response.id === 2) {
+              // Handle authorize response
+              if (response.error) {
+                reject(new Error(`Authorization error: ${response.error}`));
+                return;
+              }
+              
+              addLog('Worker authorized successfully');
+              resolve(socket);
+            } else if (response.method === 'mining.notify') {
+              // Handle new job notification
+              handleNewJob(response.params);
+            } else if (response.method === 'mining.set_difficulty') {
+              // Handle difficulty change
+              handleDifficultyChange(response.params[0]);
+            } else if (response.result === true && response.id > 2) {
+              // Handle share accepted
+              shares.accepted++;
+              sharesDisplay.textContent = `${shares.accepted} / ${shares.rejected}`;
+              addLog(`Share accepted! Total accepted: ${shares.accepted}`);
+              
+              // Simulate pool balance increase
+              const reward = parseFloat((Math.random() * 0.0002).toFixed(5));
+              poolBalance += reward;
+              poolBalanceDisplay.textContent = `${poolBalance.toFixed(5)} ETH`;
+              withdrawBalanceDisplay.textContent = `${poolBalance.toFixed(5)} ETH`;
+              addLog(`Received reward: +${reward.toFixed(5)} ETH`);
+            } else if (response.error && response.id > 2) {
+              // Handle share rejected
+              shares.rejected++;
+              sharesDisplay.textContent = `${shares.accepted} / ${shares.rejected}`;
+              addLog(`Share rejected: ${response.error[1]}`);
+            }
+          };
+          
+          socket.onerror = (error) => {
+            reject(new Error(`WebSocket error: ${error.message}`));
+          };
+          
+          socket.onclose = () => {
+            addLog('Disconnected from mining pool');
+            if (mining) {
+              stopMining();
+            }
+          };
+          
+          return socket;
+        } catch (error) {
+          reject(error);
+        }
+      });
+    }
+    
+    // Handle new mining job from pool
+    function handleNewJob(jobParams) {
+      const [jobId, prevHash, coinbase1, coinbase2, merkleTree, version, nbits, ntime, cleanJobs] = jobParams;
+      
+      // Convert job parameters
+      const target = difficultyToTarget(currentDifficulty);
+      
+      // Create job object
+      currentJob = {
+        jobId: jobId,
+        prevHash: prevHash,
+        coinbase1: coinbase1,
+        coinbase2: coinbase2,
+        merkleTree: merkleTree,
+        version: version,
+        nbits: nbits,
+        ntime: ntime,
+        cleanJobs: cleanJobs,
+        target: target
+      };
+      
+      addLog(`Received new job: ${jobId}`);
+      
+      // Update all workers with new job
+      workers.forEach(worker => {
+        worker.postMessage({
+          type: 'update_job',
+          job: currentJob
+        });
+      });
+    }
+    
+    // Handle difficulty change from pool
+    function handleDifficultyChange(difficulty) {
+      currentDifficulty = difficulty;
+      addLog(`Difficulty changed to ${difficulty}`);
+    }
+    
+    // Convert mining difficulty to target
+    function difficultyToTarget(difficulty) {
+      // Max target (lowest difficulty)
+      const maxTarget = '0x00000000ffff0000000000000000000000000000000000000000000000000000';
+      
+      // Calculate target based on difficulty
+      const maxTargetBN = BigInt(maxTarget);
+      const difficultyBN = BigInt(Math.floor(difficulty * 1000000)) * BigInt(1000000);
+      const targetBN = maxTargetBN / difficultyBN;
+      
+      // Convert to hex string
+      return '0x' + targetBN.toString(16).padStart(64, '0');
+    }
+    
+    // Start mining
+    async function startMining() {
+      const walletAddress = walletAddressInput.value.trim();
+      const poolUrl = poolUrlInput.value.trim();
+      const workerName = workerNameInput.value.trim();
+      const chain = chainSelectInput.value;
+      const threadCount = parseInt(threadsInput.value, 10) || 4;
+      const intensity = intensityInput.value;
+      
+      if (!walletAddress || !poolUrl || !workerName) {
+        addLog('Error: Please fill in all required fields');
+        return;
+      }
+      
+      // Validate wallet address
+      if (!/^0x[a-fA-F0-9]{40}$/.test(walletAddress)) {
+        addLog('Error: Invalid wallet address format');
+        return;
+      }
+      
+      try {
+        mining = true;
+        miningStatusDisplay.textContent = 'Connecting...';
+        miningStatusDisplay.style.color = '#f39c12';
+        startMiningButton.disabled = true;
+        stopMiningButton.disabled = false;
+        
+        addLog(`Starting miner on ${chain.toUpperCase()} chain`);
+        addLog(`Mining to wallet: ${walletAddress}`);
+        addLog(`Connecting to pool: ${poolUrl}`);
+        addLog(`Using ${threadCount} threads with ${intensity} intensity`);
+        
+        // Connect to mining pool
+        try {
+          stratumSocket = await connectToPool(
+            poolUrl,
+            `${walletAddress}.${workerName}`
+          );
+        } catch (error) {
+          throw new Error(`Failed to connect to pool: ${error.message}`);
+        }
+        
+        // Start mining workers
+        const workerIntensity = intensity === 'low' ? 5 : (intensity === 'medium' ? 10 : 20);
+        const workerUrl = window.workerUrl;
+        
+        for (let i = 0; i < threadCount; i++) {
+          // Create new worker
+          const worker = new Worker(workerUrl);
+          
+          // Setup message handler
+          worker.onmessage = handleWorkerMessage;
+          
+          // Store worker
+          workers.push(worker);
+          
+          // Initialize worker
+          worker.postMessage({
+            type: 'start',
+            job: currentJob,
+            intensity: workerIntensity,
+            workerId: i
+          });
+          
+          addLog(`Started mining worker ${i+1}`);
+        }
+        
+        // Update status
+        miningStatusDisplay.textContent = 'Mining';
+        miningStatusDisplay.style.color = '#2ecc71';
+        
+        // Start hashrate monitoring
+        startHashrateMonitoring();
+        
+      } catch (error) {
+        console.error('Mining error:', error);
+        addLog(`Error starting miner: ${error.message}`);
+        mining = false;
+        miningStatusDisplay.textContent = 'Error';
+        miningStatusDisplay.style.color = '#e74c3c';
+        startMiningButton.disabled = false;
+        stopMiningButton.disabled = true;
+      }
+    }
+    
+    // Handle messages from mining workers
+    function handleWorkerMessage(event) {
+      const data = event.data;
+      
+      switch (data.type) {
+        case 'hashrate':
+          // Update worker hashrate
+          const workerId = data.workerId;
+          const hashrate = data.hashrate;
+          
+          // Updated total hashrate is tracked in startHashrateMonitoring
+          break;
+          
+        case 'share_found':
+          // Worker found a share
+          addLog(`Found share with nonce: ${data.nonce}`);
+          
+          // Submit share to pool
+          submitShare(data.job.jobId, data.nonce, data.mixHash);
+          break;
+          
+        case 'initialized':
+          // Worker initialized
+          addLog(`Worker initialized for epoch ${data.epoch}`);
+          break;
+          
+        case 'error':
+          // Worker error
+          addLog(`Worker error: ${data.message}`);
+          break;
+      }
+    }
+    
+    // Submit share to mining pool
+    function submitShare(jobId, nonce, mixHash) {
+      if (!stratumSocket || !extraNonce1) {
+        addLog('Error: Cannot submit share, not connected to pool');
+        return;
+      }
+      
+      try {
+        // Generate extraNonce2
+        const extraNonce2 = Math.floor(Math.random() * 0xFFFFFFFF).toString(16).padStart(extraNonce2Size * 2, '0');
+        
+        // Format nonce as hex
+        const nonceHex = nonce.toString(16).padStart(16, '0');
+        
+        // Create submit request
+        const submitRequest = {
+          id: 3 + shares.accepted + shares.rejected,
+          method: 'mining.submit',
+          params: [
+            `${walletAddressInput.value.trim()}.${workerNameInput.value.trim()}`,
+            jobId,
+            extraNonce2,
+            currentJob.ntime,
+            nonceHex,
+            mixHash
+          ]
+        };
+        
+        // Send request
+        stratumSocket.send(JSON.stringify(submitRequest));
+        
+        addLog(`Share submitted for job ${jobId}`);
+      } catch (error) {
+        console.error('Share submission error:', error);
+        addLog(`Error submitting share: ${error.message}`);
+      }
+    }
+    
+    // Start hashrate monitoring
+    function startHashrateMonitoring() {
+      hashrateInterval = setInterval(() => {
+        if (!mining) {
+          clearInterval(hashrateInterval);
+          return;
+        }
+        
+        // Calculate total hashrate from all workers
+        totalHashrate = 0;
+        
+        // In a real implementation, we would collect hashrates from worker messages
+        // For now, simulate a reasonably realistic hashrate
+        const threads = parseInt(threadsInput.value, 10) || 4;
+        const intensity = intensityInput.value;
+        
+        // Base hashrate per thread (MH/s)
+        const baseHashrate = intensity === 'low' ? 0.5 : (intensity === 'medium' ? 1.0 : 1.5);
+        
+        // Add some random variation
+        totalHashrate = (baseHashrate * threads) * (0.9 + Math.random() * 0.2);
+        
+        // Update UI
+        hashRateDisplay.textContent = `${totalHashrate.toFixed(2)} MH/s`;
+        
+        // Update hashrate history
+        hashrateHistory.push(totalHashrate);
+        hashrateHistory.shift();
+        hashrateChart.data.datasets[0].data = hashrateHistory;
+        hashrateChart.update();
+        
+      }, 2000);
+    }
+    
+    // Stop mining
+    function stopMining() {
+      mining = false;
+      
+      // Stop all workers
+      workers.forEach(worker => {
+        worker.postMessage({ type: 'stop' });
+        worker.terminate();
+      });
+      workers = [];
+      
+      // Clear intervals
+      clearInterval(hashrateInterval);
+      
+      // Close stratum connection
+      if (stratumSocket && stratumSocket.readyState === WebSocket.OPEN) {
+        stratumSocket.close();
+      }
+      stratumSocket = null;
+      
+      // Update UI
+      miningStatusDisplay.textContent = 'Stopped';
+      miningStatusDisplay.style.color = '#e74c3c';
+      startMiningButton.disabled = false;
+      stopMiningButton.disabled = true;
+      hashRateDisplay.textContent = '0 MH/s';
+      
+      addLog('Mining stopped');
+    }
+    
+    // Withdraw ETH to wallet
+    async function openWithdrawalModal() {
+      const amount = withdrawAmountInput.value.trim();
+      let address = withdrawAddressInput.value.trim();
+      
+      // Validate amount
+      if (!amount || isNaN(amount) || parseFloat(amount) <= 0) {
+        withdrawalErrorDisplay.style.display = 'block';
+        errorMessageDisplay.textContent = 'Please enter a valid amount';
+        withdrawalSuccessDisplay.style.display = 'none';
+        return;
+      }
+      
+      const withdrawAmount = parseFloat(amount);
+      
+      // Check minimum withdrawal
+      if (withdrawAmount < 0.01) {
+        withdrawalErrorDisplay.style.display = 'block';
+        errorMessageDisplay.textContent = 'Minimum withdrawal amount is 0.01 ETH';
+        withdrawalSuccessDisplay.style.display = 'none';
+        return;
+      }
+      
+      // Check sufficient balance
+      if (withdrawAmount > poolBalance) {
+        withdrawalErrorDisplay.style.display = 'block';
+        errorMessageDisplay.textContent = 'Insufficient balance';
+        withdrawalSuccessDisplay.style.display = 'none';
+        return;
+      }
+      
+      // If address is empty, use mining wallet address
+      if (!address) {
+        address = walletAddressInput.value.trim();
+      }
+      
+      // Validate wallet address
+      if (!/^0x[a-fA-F0-9]{40}$/.test(address)) {
+        withdrawalErrorDisplay.style.display = 'block';
+        errorMessageDisplay.textContent = 'Invalid wallet address format';
+        withdrawalSuccessDisplay.style.display = 'none';
+        return;
+      }
+      
+      // Update modal values
+      modalAmount.textContent = withdrawAmount.toFixed(5);
+      modalAddress.textContent = address;
+      updateGasFee();
+      
+      // Show modal
+      withdrawalModal.style.display = 'flex';
+      
+      // Reset error/success messages
+      withdrawalErrorDisplay.style.display = 'none';
+      withdrawalSuccessDisplay.style.display = 'none';
+    }
+    
+    // Process withdrawal
+    async function processWithdrawal() {
+      const amount = parseFloat(withdrawAmountInput.value.trim());
+      let address = withdrawAddressInput.value.trim();
+      
+      // If address is empty, use mining wallet address
+      if (!address) {
+        address = walletAddressInput.value.trim();
+      }
+      
+      // Show loading spinner
+      confirmationSpinner.style.display = 'inline-block';
+      modalConfirmButton.disabled = true;
+      
+      try {
+        // Get gas price based on slider
+        const gasPrice = getGasPriceFromSlider();
+        
+        // In a real implementation, this would create and sign a Web3 transaction
+        // For now, simulate a withdrawal request to the pool
+        
+        // Submit withdrawal request to pool
+        // In real implementation, this would be done via the pool's API
+        await new Promise(resolve => setTimeout(resolve, 2000)); // Simulate request time
+        
+        // Generate a transaction hash
+        const txHash = '0x' + Array.from({length: 64}, () => 
+          '0123456789abcdef'[Math.floor(Math.random() * 16)]
+        ).join('');
+        
+        // Update the pool balance
+        poolBalance -= amount;
+        poolBalanceDisplay.textContent = `${poolBalance.toFixed(5)} ETH`;
+        withdrawBalanceDisplay.textContent = `${poolBalance.toFixed(5)} ETH`;
+        
+        // Add transaction to history
+        addTransactionToHistory(new Date(), amount, txHash, 'pending');
+        
+        // Add to logs
+        addLog(`Withdrawal of ${amount.toFixed(5)} ETH initiated. Transaction: ${txHash}`);
+        
+        // Show success message
+        withdrawalSuccessDisplay.style.display = 'block';
+        txHashDisplay.textContent = txHash;
+        withdrawalErrorDisplay.style.display = 'none';
+        
+        // Reset form
+        withdrawAmountInput.value = '';
+        
+        // Close modal
+        withdrawalModal.style.display = 'none';
+        
+        // Simulate transaction confirmation after some time
+        setTimeout(() => {
+          // Update transaction status in history
+          const rows = transactionHistory.querySelectorAll('tr');
+          for (let i = 0; i < rows.length; i++) {
+            const hashCell = rows[i].cells[2];
+            if (hashCell && hashCell.textContent.includes(txHash.substring(0, 8))) {
+              rows[i].cells[3].innerHTML = '<span class="transaction-status status-confirmed">Confirmed</span>';
+              break;
+            }
+          }
+          
+          addLog(`Withdrawal of ${amount.toFixed(5)} ETH confirmed!`);
+        }, 10000); // Simulate 10 seconds until confirmation
+        
+      } catch (error) {
+        console.error('Withdrawal error:', error);
+        
+        // Show error message
+        withdrawalErrorDisplay.style.display = 'block';
+        errorMessageDisplay.textContent = error.message || 'Transaction failed';
+        withdrawalSuccessDisplay.style.display = 'none';
+        
+        // Add to logs
+        addLog(`Error processing withdrawal: ${error.message}`);
+      } finally {
+        // Hide loading spinner
+        confirmationSpinner.style.display = 'none';
+        modalConfirmButton.disabled = false;
+      }
+    }
+    
+    // Get gas price from slider value
+    function getGasPriceFromSlider() {
+      const sliderValue = parseInt(gasSlider.value, 10);
+      
+      // Convert to gwei (1-100 gwei range)
+      return sliderValue;
+    }
+    
+    // Update gas fee based on slider position
+    function updateGasFee() {
+      const sliderValue = parseInt(gasSlider.value);
+      
+      // Calculate fee based on slider position (0.0005 to 0.002 ETH)
+      const fee = 0.0005 + (sliderValue / 100) * 0.0015;
+      gasFeeDisplay.textContent = fee.toFixed(5);
+      
+      // Calculate estimated time
+      let time;
+      if (sliderValue < 25) {
+        time = '30-60 minutes';
+      } else if (sliderValue < 50) {
+        time = '15-30 minutes';
+      } else if (sliderValue < 75) {
+        time = '5-15 minutes';
+      } else {
+        time = '1-5 minutes';
+      }
+      gasTimeDisplay.textContent = time;
+    }
+    
+    // Add transaction to history table
+    function addTransactionToHistory(date, amount, hash, status) {
+      const row = transactionHistory.insertRow(0);
+      
+      // Format date
+      const formattedDate = new Intl.DateTimeFormat('en-US', {
+        year: 'numeric',
+        month: 'short',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit'
+      }).format(date);
+      
+      // Create cells
+      const dateCell = row.insertCell(0);
+      const amountCell = row.insertCell(1);
+      const hashCell = row.insertCell(2);
+      const statusCell = row.insertCell(3);
+      
+      // Add cell content
+      dateCell.textContent = formattedDate;
+      amountCell.textContent = `${amount.toFixed(5)} ETH`;
+      
+      // Create a shortened hash with ellipsis
+      const shortHash = `${hash.substring(0, 8)}...${hash.substring(hash.length - 6)}`;
+      hashCell.innerHTML = `<a href="https://etherscan.io/tx/${hash}" target="_blank" title="${hash}">${shortHash}</a>`;
+      
+      // Add status with appropriate styling
+      const statusClass = status === 'confirmed' ? 'status-confirmed' : 'status-pending';
+      statusCell.innerHTML = `<span class="transaction-status ${statusClass}">${status.charAt(0).toUpperCase() + status.slice(1)}</span>`;
+    }
+    
+    // Toggle withdrawal option selection
+    withdrawOptions.forEach(option => {
+      option.addEventListener('click', () => {
+        // Remove selection from all options
+        withdrawOptions.forEach(opt => opt.classList.remove('selected'));
+        
+        // Add selection to clicked option
+        option.classList.add('selected');
+        
+        // Update selected option
+        withdrawalOption = option.getAttribute('data-option');
+      });
+    });
+    
+    // Event listeners
+    startMiningButton.addEventListener('click', startMining);
+    stopMiningButton.addEventListener('click', stopMining);
+    confirmWithdrawButton.addEventListener('click', openWithdrawalModal);
+    modalCloseButton.addEventListener('click', () => withdrawalModal.style.display = 'none');
+    modalCancelButton.addEventListener('click', () => withdrawalModal.style.display = 'none');
+    modalConfirmButton.addEventListener('click', processWithdrawal);
+    gasSlider.addEventListener('input', updateGasFee);
+    
+    // Close modal if user clicks outside of it
+    window.addEventListener('click', (event) => {
+      if (event.target === withdrawalModal) {
+        withdrawalModal.style.display = 'none';
+      }
+    });
+    
+    // Initialize page on load
+    document.addEventListener('DOMContentLoaded', () => {
+      initialize();
+      
+      // Hide withdrawal section initially
+      withdrawSection.style.display = 'none';
+      
+      // Show withdrawal section when button is clicked
+      document.getElementById('withdraw-btn').addEventListener('click', () => {
+        withdrawSection.style.display = 'block';
+        withdrawSection.scrollIntoView({ behavior: 'smooth' });
+      });
+      
+      // Add sample transaction to history
+      addTransactionToHistory(
+        new Date(Date.now() - 86400000), // Yesterday
+        0.05432,
+        '0x7a69d948be1a33946d9f69c5d7fdbc28e4f4bb50eaec3ed79c8ed640674a5be7',
+        'confirmed'
+      );
+    });
+  </script>
+
+</body>
+</html>
