@@ -12,8 +12,8 @@ export function useMining() {
   const [hashrateHistory, setHashrateHistory] = useState<ChartDataPoint[]>(miningStateManager.getHashrateHistory());
   const [earningsHistory, setEarningsHistory] = useState<ChartDataPoint[]>(miningStateManager.getEarningsHistory());
   
-  const [ethashEngine] = useState(() => new EthashEngine());
-  const [stratumClient, setStratumClient] = useState<StratumClient | null>(null);
+  const [miningEngine] = useState(() => new ProductionMiningEngine());
+  const [stratumClient, setStratumClient] = useState<RealStratumClient | null>(null);
   const [isInitialized, setIsInitialized] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
