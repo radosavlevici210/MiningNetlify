@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { miningStateManager } from '@/lib/mining/mining-state';
-import { EthashEngine } from '@/lib/mining/ethash-engine';
-import { StratumClient } from '@/lib/mining/stratum-client';
+import { ProductionMiningEngine } from '@/lib/mining/production-mining-engine';
+import { RealStratumClient } from '@/lib/mining/real-stratum-client';
 import { web3Integration } from '@/lib/mining/web3-integration';
 import { MiningState, MiningConfiguration, MiningStats, LogEntry, ChartDataPoint } from '@/types/mining';
 
