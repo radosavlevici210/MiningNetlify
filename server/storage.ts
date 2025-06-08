@@ -90,7 +90,7 @@ export class DatabaseStorage implements IStorage {
     const { db } = await import("./db");
     const { eq } = await import("drizzle-orm");
     const result = await db.delete(miningConfigurations).where(eq(miningConfigurations.id, id));
-    return result.rowCount > 0;
+    return (result.rowCount || 0) > 0;
   }
 
   // Mining Stats methods
