@@ -221,7 +221,7 @@ export class ProductionMiningEngine {
         const avgHashrate = this.hashCount / Math.max(uptime, 1);
         
         this.callbacks.onHashrate?.(avgHashrate);
-        this.callbacks.onStats?({
+        this.callbacks.onStats?.({
           uptime,
           hashrate: avgHashrate,
           shares: this.totalShares,
