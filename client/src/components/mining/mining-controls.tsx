@@ -135,22 +135,21 @@ export function MiningControls({
         <div className="border-t border-mining-border pt-4">
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label className="text-mining-text-secondary">Threads</Label>
+              <Label className="text-mining-text-secondary">Threads (No Limit)</Label>
               <Input
                 type="number"
                 min="1"
-                max="16"
                 value={config.threadCount}
                 onChange={(e) => setConfig({ ...config, threadCount: parseInt(e.target.value) || 4 })}
                 className="bg-gray-800 border-mining-border text-mining-text"
               />
             </div>
             <div className="space-y-2">
-              <Label className="text-mining-text-secondary">Intensity: {config.intensity}</Label>
+              <Label className="text-mining-text-secondary">Intensity: {config.intensity} (Max Performance)</Label>
               <Slider
                 value={[config.intensity]}
                 onValueChange={(value) => setConfig({ ...config, intensity: value[0] })}
-                max={10}
+                max={100}
                 min={1}
                 step={1}
                 className="w-full"
