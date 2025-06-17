@@ -72,10 +72,10 @@ export const ELITE_MINING_POOLS: PoolConfig[] = [
 ];
 
 export function getBestPool(): PoolConfig {
-  // Return the pool with best performance ratio
+  // Return the pool with best performance ratio (prioritize reliability and low latency)
   return ELITE_MINING_POOLS.sort((a, b) => {
-    const scoreA = (a.reliability / 100) * (100 - a.latency) * (100 - a.fees);
-    const scoreB = (b.reliability / 100) * (100 - b.latency) * (100 - b.fees);
+    const scoreA = (a.reliability / 100) * (1000 / (a.latency + 1)) * (100 / (a.fees + 1));
+    const scoreB = (b.reliability / 100) * (1000 / (b.latency + 1)) * (100 / (b.fees + 1));
     return scoreB - scoreA;
   })[0];
 }

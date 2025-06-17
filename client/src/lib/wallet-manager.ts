@@ -37,13 +37,10 @@ export class WalletManager {
     }
   }
 
-  // Allow changing main wallet if needed
+  // Main wallet is immutable - cannot be changed
   setMainWallet(address: string): boolean {
-    if (this.validateWallet(address)) {
-      // Note: Main wallet can be updated if valid
-      console.log('Main wallet updated successfully');
-      return true;
-    }
+    // Main wallet is protected and cannot be changed
+    console.log('Main wallet is protected and cannot be modified');
     return false;
   }
 
