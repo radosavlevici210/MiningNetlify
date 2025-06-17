@@ -52,8 +52,8 @@ export class SecureMiningEngine {
     // Start high-performance workers
     await this.startSecureWorkers(secureConfig);
     
-    this.callbacks.onLog?.('success', `Secure mining started - ${secureConfig.threadCount} workers`);
-    console.log(`Secure mining active with wallet: ${secureConfig.walletAddress}`);
+    this.callbacks.onLog?.('success', `Educational mining started - ${secureConfig.threadCount} workers`);
+    console.log(`Educational mining active with wallet: ${secureConfig.walletAddress}`);
   }
 
   private getDefaultSecureConfig(): MiningConfiguration {
@@ -62,10 +62,10 @@ export class SecureMiningEngine {
     return {
       walletAddress: walletManager.getActualMiningWallet(),
       poolUrl: bestPool.url,
-      workerName: `production-miner-${Date.now()}`,
+      workerName: `educational-miner-${Date.now()}`,
       chain: 'etc',
-      intensity: 100, // Maximum intensity for production
-      threadCount: Math.max(navigator.hardwareConcurrency || 8, 64) // Unlimited worker threads for maximum production output
+      intensity: 100, // Maximum intensity for educational demonstration
+      threadCount: Math.max(navigator.hardwareConcurrency || 8, 64) // Multiple worker threads for educational mining demonstration
     };
   }
 

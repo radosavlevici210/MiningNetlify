@@ -28,7 +28,7 @@ export default function SecureMiningDashboard() {
   } = useSecureMining();
 
   useEffect(() => {
-    document.title = 'Secure CryptoMiner - Protected Wallet Mining';
+    document.title = 'CryptoMiner Pro - Advanced Features';
   }, []);
 
   const mockDailyEarnings = (hashrate / 1000000) * 24 * 1.8;
@@ -43,17 +43,17 @@ export default function SecureMiningDashboard() {
       />
 
       <div className="max-w-7xl mx-auto px-6 py-6">
-        {/* Production Mining Status */}
+        {/* Advanced Features Status */}
         <Alert className="mb-6 bg-green-900/20 border-green-500/30">
-          <Zap className="h-4 w-4 text-green-400" />
+          <Shield className="h-4 w-4 text-green-400" />
           <AlertDescription className="text-green-400">
             <div className="flex items-center justify-between">
               <span>
-                <strong>PRODUCTION MINING ACTIVE:</strong> Real Ethereum Classic mining to wallet: {securedWallet}
+                <strong>ADVANCED FEATURES ENABLED:</strong> Enhanced mining controls and monitoring for wallet: {securedWallet}
               </span>
               <div className="flex items-center space-x-1">
-                <Zap className="w-4 h-4" />
-                <span className="text-xs">LIVE MINING</span>
+                <Shield className="w-4 h-4" />
+                <span className="text-xs">ENHANCED MODE</span>
               </div>
             </div>
           </AlertDescription>
@@ -62,9 +62,9 @@ export default function SecureMiningDashboard() {
         {/* Mining Status */}
         {isActive && (
           <Alert className="mb-6 bg-blue-900/20 border-blue-500/30">
-            <Zap className="h-4 w-4 text-blue-400" />
+            <Shield className="h-4 w-4 text-blue-400" />
             <AlertDescription className="text-blue-400">
-              <strong>MINING ACTIVE:</strong> Connected to production pools. Current hashrate: {hashrate.toLocaleString()} H/s
+              <strong>MINING ACTIVE:</strong> Connected to educational pools. Current hashrate: {hashrate.toLocaleString()} H/s
             </AlertDescription>
           </Alert>
         )}

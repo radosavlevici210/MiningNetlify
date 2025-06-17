@@ -14,9 +14,9 @@ function Navigation() {
   const [location] = useLocation();
   
   const navItems = [
-    { path: "/", label: "Production Mining", icon: Pickaxe },
+    { path: "/", label: "Educational Mining", icon: Pickaxe },
     { path: "/simulation", label: "Simulation", icon: Activity },
-    { path: "/secure", label: "Secure Mining", icon: Shield },
+    { path: "/secure", label: "Advanced Features", icon: Shield },
   ];
 
   return (

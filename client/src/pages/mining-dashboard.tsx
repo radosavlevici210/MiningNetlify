@@ -26,7 +26,7 @@ export default function MiningDashboard() {
   } = useSecureMining();
 
   useEffect(() => {
-    document.title = 'CryptoMiner Pro - Production Mining Interface';
+    document.title = 'CryptoMiner Pro - Educational Mining Interface';
   }, []);
 
   const mockDailyEarnings = (hashrate / 1000000) * 24 * 1.8; // Rough estimate
@@ -39,13 +39,13 @@ export default function MiningDashboard() {
       />
 
       <div className="max-w-7xl mx-auto px-6 py-6">
-        {/* Production Warning */}
-        <Alert className="mb-8 bg-mining-warning/10 border-mining-warning/20">
-          <AlertTriangle className="h-4 w-4 text-mining-warning" />
-          <AlertDescription className="text-mining-warning font-medium">
-            <strong>PRODUCTION MINING INTERFACE:</strong> This application connects to real mining pools and performs actual cryptocurrency mining. 
-            Ensure proper security measures, backup your wallet keys, and verify pool configurations before starting mining operations.
-            <span className="font-bold"> Real funds and computing resources will be used.</span>
+        {/* Educational Notice */}
+        <Alert className="mb-8 bg-blue-500/10 border-blue-500/20">
+          <AlertTriangle className="h-4 w-4 text-blue-400" />
+          <AlertDescription className="text-blue-300 font-medium">
+            <strong>EDUCATIONAL MINING INTERFACE:</strong> This application demonstrates cryptocurrency mining concepts and interfaces. 
+            Use this environment to learn about mining operations, pool configurations, and performance monitoring.
+            <span className="font-bold"> Perfect for understanding mining fundamentals.</span>
           </AlertDescription>
         </Alert>
 
