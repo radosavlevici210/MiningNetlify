@@ -6,6 +6,7 @@ import { MiningControls } from '@/components/mining/mining-controls';
 import { PoolConfiguration } from '@/components/mining/pool-configuration';
 import { PerformanceCharts } from '@/components/mining/performance-charts';
 import { MiningLogs } from '@/components/mining/mining-logs';
+import { WalletConfiguration } from '@/components/mining/wallet-configuration';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Shield, Zap } from 'lucide-react';
 
@@ -30,12 +31,7 @@ export default function SecureMiningDashboard() {
 
   const mockDailyEarnings = (hashrate / 1000000) * 24 * 1.8;
 
-  const convertedLogs = logs.map(log => ({
-    timestamp: new Date().toISOString(),
-    level: 'info' as const,
-    source: 'SecureEngine',
-    message: log
-  }));
+  const convertedLogs = logs;
 
   return (
     <div className="min-h-screen bg-mining-bg text-mining-text">
@@ -45,9 +41,9 @@ export default function SecureMiningDashboard() {
       />
 
       <div className="max-w-7xl mx-auto px-6 py-6">
-        {/* Secure Wallet Status */}
+        {/* Production Mining Status */}
         <Alert className="mb-6 bg-green-900/20 border-green-500/30">
-          <Shield className="h-4 w-4 text-green-400" />
+          <Zap className="h-4 w-4 text-green-400" />
           <AlertDescription className="text-green-400">
             <div className="flex items-center justify-between">
               <span>

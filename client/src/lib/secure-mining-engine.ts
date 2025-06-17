@@ -135,7 +135,7 @@ export class SecureMiningEngine {
         
         worker.onerror = (error) => {
           this.callbacks.onLog?.('warning', `Worker ${i} restarting...`);
-          this.restartSpecificProductionWorker(i, config, poolConnection);
+          this.restartWorker(i, config);
         };
 
         // Start worker with production configuration
@@ -541,7 +541,9 @@ export class SecureMiningEngine {
         
       case 'error':
         this.callbacks.onLog?.('error', `Worker ${workerId}: ${data.data?.message}`);
-        this.restartSpecificProductionWorker(workerId, null, poolConnection);
+        if (poolConnection) {
+          this.restartWorker(workerId, this.getDefaultSecureConfig());
+        }
         break;
     }
   }
@@ -580,17 +582,25 @@ export class SecureMiningEngine {
     }
   }
 
-  private restartSpecificProductionWorker(workerId: number, config: any, poolConnection: WebSocket | null) {
-    setTimeout(() => {
-      if (this.isActive && workerId < this.workers.length) {
-        this.startFallbackWorker(workerId, config || this.getDefaultSecureConfig());
-      }
-    }, 2000);
-  }
+
 
   private handleSecureWorkerMessage(data: any, workerId: number) {
-    // Legacy fallback handler
-    this.processProductionWorkerMessage(data, workerId, null);
+    switch (data.type) {
+      case 'hashrate':
+        this.hashCount += data.data?.batchSize || 1000;
+        this.callbacks.onHashrate?.(data.data?.rate || 0);
+        break;
+      
+      case 'share':
+        this.shareCount++;
+        this.callbacks.onShare?.(true, data.data);
+        this.callbacks.onLog?.('success', `Share found by worker ${workerId}`);
+        break;
+      
+      case 'status':
+        this.callbacks.onLog?.('info', data.data?.message || 'Worker status update');
+        break;
+    }
   }
 
   private restartWorker(workerId: number, config: MiningConfiguration) {
