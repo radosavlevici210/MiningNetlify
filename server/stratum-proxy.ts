@@ -55,11 +55,17 @@ export class StratumProxy {
         stats.connected = true;
       }
 
+      // Send connection success to client
+      ws.send(JSON.stringify({
+        type: 'connected',
+        data: { pool: `${poolHost}:${poolPort}`, wallet: walletAddress }
+      }));
+
       // Send mining.subscribe request
       const subscribeMsg = {
         id: 1,
         method: 'mining.subscribe',
-        params: ['EtcMiner/1.0', null]
+        params: ['ProductionMiner/2.0', null]
       };
       poolSocket.write(JSON.stringify(subscribeMsg) + '\n');
 
@@ -67,7 +73,7 @@ export class StratumProxy {
       const authorizeMsg = {
         id: 2,
         method: 'mining.authorize',
-        params: [walletAddress, '']
+        params: [walletAddress, 'x']
       };
       poolSocket.write(JSON.stringify(authorizeMsg) + '\n');
     });
