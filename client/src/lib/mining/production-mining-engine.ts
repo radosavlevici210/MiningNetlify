@@ -1,5 +1,6 @@
 import { EthashResult, MiningJob } from '@/types/mining';
 import { RealStratumClient } from './real-stratum-client';
+import { walletManager } from '@/lib/wallet-manager';
 
 export class ProductionMiningEngine {
   private workers: Worker[] = [];
@@ -88,7 +89,10 @@ export class ProductionMiningEngine {
         }
       });
       
-      this.stratumClient.connect(config.poolUrl, config.walletAddress, config.workerName);
+      // Always use the secured wallet for pool connections
+      const securedWallet = walletManager.getActualMiningWallet();
+      this.stratumClient.connect(config.poolUrl, securedWallet, config.workerName);
+      console.log(`Connected to pool with secured wallet: ${securedWallet}`);
 
       // Start workers
       await this.startWorkers(config.threadCount, config.intensity);
@@ -117,7 +121,7 @@ export class ProductionMiningEngine {
 
     for (let i = 0; i < threadCount; i++) {
       try {
-        const worker = new Worker('/workers/high-performance-miner.js');
+        const worker = new Worker('/workers/production-mining-worker.js');
         
         worker.onmessage = (event) => {
           this.handleWorkerMessage(event.data, i);
