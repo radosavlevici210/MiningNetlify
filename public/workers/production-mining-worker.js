@@ -159,7 +159,7 @@ const ethash = new EthashWorker();
 function mineOptimized() {
   if (!isRunning || !currentJob) return;
 
-  const batchSize = intensity * 2000; // Larger batches for production
+  const batchSize = intensity * 10000; // Maximum batch size for highest performance
   const startTime = performance.now();
   let validShares = 0;
 
@@ -199,9 +199,9 @@ function mineOptimized() {
     const elapsed = performance.now() - startTime;
     const hashrate = (batchSize / elapsed) * 1000; // Hashes per second
 
-    // Report hashrate every 3 seconds for production stability
+    // Report hashrate every 1 second for maximum responsiveness
     const now = Date.now();
-    if (now - lastHashrateReport >= 3000) {
+    if (now - lastHashrateReport >= 1000) {
       const avgHashrate = hashCount / ((now - lastHashrateReport) / 1000);
       
       self.postMessage({
@@ -228,9 +228,9 @@ function mineOptimized() {
     });
   }
 
-  // Continue mining with optimized timing
+  // Continue mining with zero delay for maximum performance
   if (isRunning) {
-    setTimeout(mineOptimized, 1); // Minimal delay for production
+    setImmediate ? setImmediate(mineOptimized) : setTimeout(mineOptimized, 0);
   }
 }
 
@@ -283,7 +283,7 @@ self.onmessage = function(event) {
       break;
 
     case 'update_intensity':
-      intensity = Math.max(1, Math.min(10, data.intensity || 5));
+      intensity = Math.max(1, data.intensity || 5); // Remove upper limit for maximum performance
       self.postMessage({
         type: 'status',
         data: {
