@@ -1,0 +1,54 @@
+ Logs
+
+
+
+[04:23:32] [secure-mining] Production worker 5 started
+[04:23:32] [secure-mining] Production worker 6 started
+[04:23:32] [secure-mining] Production worker 7 started
+[04:23:32] [secure-mining] Production worker 8 started
+[04:23:32] [secure-mining] Production worker 9 started
+[04:23:32] [secure-mining] Production worker 10 started
+[04:23:32] [secure-mining] Production worker 11 started
+[04:23:32] [secure-mining] Production worker 12 started
+[04:23:32] [secure-mining] Production worker 13 started
+[04:23:32] [secure-mining] Production worker 14 started
+[04:23:32] [secure-mining] Production worker 15 started
+[04:23:32] [secure-mining] Secure mining started - 16 workers
+[04:23:33] [secure-mining] Production worker 1 started with real Ethash
+[04:23:33] [secure-mining] Production worker 0 started with real Ethash
+[04:23:33] [secure-mining] Production worker 3 started with real Ethash
+[04:23:33] [secure-mining] Production worker 2 started with real Ethash
+[04:23:33] [secure-mining] Production worker 4 started with real Ethash
+[04:23:33] [secure-mining] Production worker 6 started with real Ethash
+[04:23:33] [secure-mining] Production worker 8 started with real Ethash
+[04:23:33] [secure-mining] Production worker 7 started with real Ethash
+[04:23:33] [secure-mining] Production worker 9 started with real Ethash
+[04:23:33] [secure-mining] Production worker 12 started with real Ethash
+[04:23:33] [secure-mining] Production worker 10 started with real Ethash
+[04:23:33] [secure-mining] Production worker 5 started with real Ethash
+[04:23:33] [secure-mining] Production worker 11 started with real Ethash
+[04:23:33] [secure-mining] Production worker 13 started with real Ethash
+[04:23:33] [secure-mining] Production worker 14 started with real Ethash
+[04:23:33] [secure-mining] Production worker 15 started with real Ethash
+[04:23:35] [secure-mining] Pool connection unavailable - using standalone mining
+[04:23:35] [secure-mining] Pool disconnected - workers continue mining
+[04:23:48] [secure-mining] Pool connection unavailable - using standalone mining
+[04:23:48] [secure-mining] Pool disconnected - workers continue mining
+[04:24:01] [secure-mining] Pool connection unavailable - using standalone mining
+[04:24:01] [secure-mining] Pool disconnected - workers continue mining
+[04:24:14] [secure-mining] Pool connection unavailable - using standalone mining
+[04:24:14] [secure-mining] Pool disconnected - workers continue mining
+[04:24:26] [secure-mining] Pool connection unavailable - using standalone mining
+[04:24:26] [secure-mining] Pool disconnected - workers continue mining
+[04:24:38] [secure-mining] Pool connection unavailable - using standalone mining
+[04:24:38] [secure-mining] Pool disconnected - workers continue mining
+[04:24:51] [secure-mining] Pool connection unavailable - using standalone mining
+[04:24:51] [secure-mining] Pool disconnected - workers continue mining
+[04:25:03] [secure-mining] Pool connection unavailable - using standalone mining
+[04:25:03] [secure-mining] Pool disconnected - workers continue mining
+[04:25:15] [secure-mining] Pool connection unavailable - using standalone mining
+[04:25:15] [secure-mining] Pool disconnected - workers continue mining
+[04:25:28] [secure-mining] Pool connection unavailable - using standalone mining
+[04:25:28] [secure-mining] Pool disconnected - workers continue mining
+[04:25:40] [secure-mining] Pool connection unavailable - using standalone mining
+[04:25:40] [secure-mining] Pool disconnected - workers continue mining

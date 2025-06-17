@@ -362,15 +362,26 @@ export class SecureMiningEngine {
       async function productionMining() {
         if (!isRunning || !currentJob) return;
         
-        const batchSize = intensity * 50000; // Maximum performance
+        const batchSize = intensity * 100000; // Maximum production performance
         const startTime = performance.now();
         let validShares = 0;
+        let reportCounter = 0;
 
         try {
           // Initialize Ethash for current job
           if (currentJob.blockNumber) {
             await ethash.initializeEpoch(currentJob.blockNumber);
           }
+
+          // Send status update
+          self.postMessage({
+            type: 'status',
+            data: { 
+              message: \`Worker \${workerId}: Mining started - Target: \${currentJob.target.substring(0, 12)}...\`,
+              workerId: workerId,
+              status: 'mining'
+            }
+          });
 
           for (let i = 0; i < batchSize && isRunning; i++) {
             nonce = (nonce + 1) >>> 0;
@@ -382,6 +393,7 @@ export class SecureMiningEngine {
             // Check if meets target difficulty
             if (ethash.checkDifficulty(result.result, currentJob.target)) {
               validShares++;
+              shareCount++;
               
               self.postMessage({
                 type: 'share',
@@ -392,13 +404,26 @@ export class SecureMiningEngine {
                   workerId: workerId,
                   difficulty: currentJob.difficulty,
                   target: currentJob.target,
-                  algorithm: 'ethash'
+                  algorithm: 'ethash',
+                  shareId: shareCount,
+                  timestamp: Date.now()
+                }
+              });
+
+              // Log share found
+              self.postMessage({
+                type: 'status',
+                data: { 
+                  message: \`Worker \${workerId}: SHARE FOUND! Nonce: \${nonce.toString(16)} - Hash: \${result.result.substring(0, 16)}...\`,
+                  workerId: workerId,
+                  status: 'share_found'
                 }
               });
             }
 
-            // Report progress every 10000 hashes
-            if (i % 10000 === 0) {
+            // Report progress every 25000 hashes for more frequent updates
+            if (i % 25000 === 0) {
+              reportCounter++;
               const elapsed = performance.now() - startTime;
               const currentHashrate = (i / elapsed) * 1000;
               
@@ -408,9 +433,23 @@ export class SecureMiningEngine {
                   rate: currentHashrate,
                   workerId: workerId,
                   shares: validShares,
-                  nonce: nonce
+                  nonce: nonce,
+                  processed: i,
+                  totalHashes: hashCount
                 }
               });
+
+              // Status update every 100k hashes
+              if (reportCounter % 4 === 0) {
+                self.postMessage({
+                  type: 'status',
+                  data: { 
+                    message: \`Worker \${workerId}: Processed \${(hashCount / 1000000).toFixed(1)}M hashes - Rate: \${(currentHashrate / 1000).toFixed(1)} KH/s\`,
+                    workerId: workerId,
+                    status: 'processing'
+                  }
+                });
+              }
             }
           }
 
@@ -423,7 +462,18 @@ export class SecureMiningEngine {
               rate: finalHashrate,
               workerId: workerId,
               shares: validShares,
-              totalHashes: hashCount
+              totalHashes: hashCount,
+              batchCompleted: true
+            }
+          });
+
+          // Status completion
+          self.postMessage({
+            type: 'status',
+            data: { 
+              message: \`Worker \${workerId}: Batch complete - \${validShares} shares found in \${(elapsed/1000).toFixed(1)}s\`,
+              workerId: workerId,
+              status: 'batch_complete'
             }
           });
 
@@ -432,10 +482,19 @@ export class SecureMiningEngine {
             type: 'error',
             data: { message: error.message, workerId: workerId }
           });
+          
+          self.postMessage({
+            type: 'status',
+            data: { 
+              message: \`Worker \${workerId}: ERROR - \${error.message}\`,
+              workerId: workerId,
+              status: 'error'
+            }
+          });
         }
         
         if (isRunning) {
-          setTimeout(productionMining, 1);
+          setTimeout(productionMining, 10); // Faster restart for production
         }
       }
       
@@ -504,14 +563,19 @@ export class SecureMiningEngine {
   private processProductionWorkerMessage(data: any, workerId: number, poolConnection: WebSocket | null) {
     switch (data.type) {
       case 'hashrate':
-        this.hashCount += data.data?.batchSize || 1000;
+        this.hashCount += data.data?.processed || 1000;
         this.callbacks.onHashrate?.(data.data?.rate || 0);
+        
+        // Log detailed hashrate info for production monitoring
+        if (data.data?.batchCompleted) {
+          this.callbacks.onLog?.('info', `Worker ${workerId}: Completed batch - ${(data.data.totalHashes / 1000000).toFixed(1)}M total hashes`);
+        }
         break;
       
       case 'share':
         this.shareCount++;
         this.callbacks.onShare?.(true, data.data);
-        this.callbacks.onLog?.('success', `Valid share found by worker ${workerId}`);
+        this.callbacks.onLog?.('success', `SHARE FOUND - Worker ${workerId}: Nonce ${data.data.nonce} (${data.data.shareId})`);
         
         // Submit share to pool if connected
         if (poolConnection && poolConnection.readyState === WebSocket.OPEN) {
@@ -528,19 +592,44 @@ export class SecureMiningEngine {
           };
           
           poolConnection.send(JSON.stringify(shareSubmission));
-          this.callbacks.onLog?.('info', `Share submitted to pool: ${data.data.nonce.substring(0, 8)}...`);
+          this.callbacks.onLog?.('success', `Share submitted to pool: ${data.data.hash.substring(0, 16)}...`);
+        } else {
+          this.callbacks.onLog?.('info', `Share cached for pool submission: ${data.data.nonce}`);
         }
         break;
       
       case 'status':
-        this.callbacks.onLog?.('info', data.data?.message || 'Worker status update');
+        // Enhanced status logging based on status type
+        const status = data.data?.status || 'unknown';
+        const message = data.data?.message || 'Worker status update';
+        
+        switch (status) {
+          case 'mining':
+            this.callbacks.onLog?.('info', message);
+            break;
+          case 'share_found':
+            this.callbacks.onLog?.('success', message);
+            break;
+          case 'processing':
+            this.callbacks.onLog?.('info', message);
+            break;
+          case 'batch_complete':
+            this.callbacks.onLog?.('success', message);
+            break;
+          case 'error':
+            this.callbacks.onLog?.('error', message);
+            break;
+          default:
+            this.callbacks.onLog?.('info', message);
+        }
         break;
         
       case 'error':
-        this.callbacks.onLog?.('error', `Worker ${workerId}: ${data.data?.message}`);
-        if (poolConnection) {
+        this.callbacks.onLog?.('error', `Worker ${workerId} ERROR: ${data.data?.message}`);
+        // Auto-restart failed workers for production continuity
+        setTimeout(() => {
           this.restartWorker(workerId, this.getDefaultSecureConfig());
-        }
+        }, 2000);
         break;
     }
   }
