@@ -36,7 +36,7 @@ export default function SecureMiningDashboard() {
   const convertedLogs = logs;
 
   return (
-    <div className="min-h-screen bg-mining-bg text-mining-text">
+    <div className="text-mining-text">
       <MiningHeader
         connectionStatus={connectionStatus as any}
         networkHashrate="234.5 TH/s"
