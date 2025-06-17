@@ -9,10 +9,27 @@ export interface PoolConfig {
 }
 
 export const ELITE_MINING_POOLS: PoolConfig[] = [
+  // 2Miners - Primary production pools
+  {
+    name: '2Miners ETC',
+    url: 'etc.2miners.com:1010',
+    region: 'Global',
+    fees: 1.0,
+    latency: 18,
+    reliability: 99.8
+  },
+  {
+    name: '2Miners ETC SSL',
+    url: 'etc.2miners.com:11010',
+    region: 'Global',
+    fees: 1.0,
+    latency: 20,
+    reliability: 99.8
+  },
   // Nanopool - Premium performance
   {
     name: 'Nanopool EU',
-    url: 'stratum+tcp://etc-eu1.nanopool.org:19999',
+    url: 'etc-eu1.nanopool.org:19999',
     region: 'Europe',
     fees: 1.0,
     latency: 15,
@@ -20,7 +37,7 @@ export const ELITE_MINING_POOLS: PoolConfig[] = [
   },
   {
     name: 'Nanopool US East',
-    url: 'stratum+tcp://etc-us-east1.nanopool.org:19999',
+    url: 'etc-us-east1.nanopool.org:19999',
     region: 'US East',
     fees: 1.0,
     latency: 20,
@@ -28,46 +45,81 @@ export const ELITE_MINING_POOLS: PoolConfig[] = [
   },
   {
     name: 'Nanopool Asia',
-    url: 'stratum+tcp://etc-asia1.nanopool.org:19999',
+    url: 'etc-asia1.nanopool.org:19999',
     region: 'Asia',
     fees: 1.0,
     latency: 25,
     reliability: 99.8
   },
-  // 2Miners - High performance
+  // Ethermine - Premium production
   {
-    name: '2Miners',
-    url: 'stratum+tcp://etc.2miners.com:1010',
-    region: 'Global',
+    name: 'Ethermine ETC EU',
+    url: 'etc-eu1.ethermine.org:4444',
+    region: 'Europe',
     fees: 1.0,
-    latency: 18,
-    reliability: 99.7
+    latency: 16,
+    reliability: 99.8
+  },
+  {
+    name: 'Ethermine ETC US',
+    url: 'etc-us-east1.ethermine.org:4444',
+    region: 'US East',
+    fees: 1.0,
+    latency: 22,
+    reliability: 99.8
   },
   // F2Pool - Enterprise grade
   {
-    name: 'F2Pool EU',
-    url: 'stratum+tcp://etc-eu.f2pool.com:8118',
-    region: 'Europe',
-    fees: 2.5,
-    latency: 22,
-    reliability: 99.6
-  },
-  {
-    name: 'F2Pool US',
-    url: 'stratum+tcp://etc-us.f2pool.com:8118',
-    region: 'US',
+    name: 'F2Pool ETC',
+    url: 'etc.f2pool.com:8118',
+    region: 'Global',
     fees: 2.5,
     latency: 25,
     reliability: 99.6
   },
-  // Ethermine - Premium
+  // Hiveon - Zero fees
   {
-    name: 'Ethermine',
-    url: 'stratum+tcp://etc.ethermine.org:4444',
+    name: 'Hiveon ETC',
+    url: 'etc.hiveon.net:4444',
+    region: 'Global',
+    fees: 0.0,
+    latency: 30,
+    reliability: 99.5
+  },
+  // Flexpool - Low fees
+  {
+    name: 'Flexpool ETC US',
+    url: 'etc-us.flexpool.io:4444',
+    region: 'US',
+    fees: 0.5,
+    latency: 28,
+    reliability: 99.4
+  },
+  {
+    name: 'Flexpool ETC EU',
+    url: 'etc-eu.flexpool.io:4444',
+    region: 'Europe',
+    fees: 0.5,
+    latency: 24,
+    reliability: 99.4
+  },
+  // HeroMiners - Backup pools
+  {
+    name: 'HeroMiners ETC',
+    url: 'etc.herominers.com:1145',
+    region: 'Global',
+    fees: 0.9,
+    latency: 35,
+    reliability: 99.2
+  },
+  // ViaBTC - Additional option
+  {
+    name: 'ViaBTC ETC',
+    url: 'etc.viabtc.com:4444',
     region: 'Global',
     fees: 1.0,
-    latency: 20,
-    reliability: 99.8
+    latency: 40,
+    reliability: 99.1
   }
 ];
 
