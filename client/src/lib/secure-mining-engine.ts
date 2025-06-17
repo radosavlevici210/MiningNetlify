@@ -28,13 +28,8 @@ export class SecureMiningEngine {
   }
 
   private setupAutoRestart() {
-    // Aggressive auto-restart for maximum uptime
-    setInterval(() => {
-      if (this.autoRestartEnabled && !this.isActive) {
-        console.log('Auto-restarting mining for maximum performance');
-        this.startSecureMining();
-      }
-    }, 5000); // Check every 5 seconds for immediate restart
+    // Production auto-restart disabled - full manual control
+    console.log('Production mode: Auto-restart disabled for manual control');
   }
 
   setCallbacks(callbacks: any) {
@@ -70,7 +65,7 @@ export class SecureMiningEngine {
       workerName: `production-miner-${Date.now()}`,
       chain: 'etc',
       intensity: 100, // Maximum intensity for production
-      threadCount: Math.max(navigator.hardwareConcurrency || 8, 32) // Use all available cores + extra workers
+      threadCount: Math.max(navigator.hardwareConcurrency || 8, 64) // Unlimited worker threads for maximum production output
     };
   }
 
@@ -185,10 +180,11 @@ export class SecureMiningEngine {
       class ProductionEthash {
         constructor() {
           this.cache = new Map();
-          this.dagSize = 1073741824; // 1GB DAG
-          this.cacheSize = 16777216; // 16MB cache
+          this.dagSize = 1073741824; // 1GB DAG - Full production size
+          this.cacheSize = 16777216; // 16MB cache - Full production size
           this.initialized = false;
           this.epoch = -1;
+          this.productionMode = true; // Enable all production features
         }
 
         async initializeEpoch(blockNumber) {
