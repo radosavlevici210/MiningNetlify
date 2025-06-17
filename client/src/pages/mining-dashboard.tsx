@@ -32,7 +32,7 @@ export default function MiningDashboard() {
   const mockDailyEarnings = (hashrate / 1000000) * 24 * 1.8; // Rough estimate
 
   return (
-    <div className="min-h-screen bg-mining-bg text-mining-text">
+    <div className="text-mining-text">
       <MiningHeader
         connectionStatus={connectionStatus as 'connected' | 'connecting' | 'disconnected' | 'error'}
         networkHashrate="234.5 TH/s"

@@ -32,8 +32,7 @@ export default function SimulationDashboard() {
   } = useSimulation();
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900">
-      <div className="container mx-auto p-6 space-y-6">
+    <div className="container mx-auto p-6 space-y-6">
         {/* Header */}
         <div className="flex items-center justify-between">
           <div>
@@ -136,6 +135,5 @@ export default function SimulationDashboard() {
         {/* Mining Logs */}
         <MiningLogs logs={logs} onClearLogs={clearLogs} />
       </div>
-    </div>
-  );
+    );
 }
