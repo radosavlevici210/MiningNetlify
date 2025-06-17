@@ -61,20 +61,11 @@ export class SecureMiningEngine {
   }
 
   private getDefaultSecureConfig(): MiningConfiguration {
-    // Premium mining pools optimized for maximum earnings
-    const elitePools = [
-      'stratum+tcp://etc-eu1.nanopool.org:19999',
-      'stratum+tcp://etc-us-east1.nanopool.org:19999',
-      'stratum+tcp://etc-asia1.nanopool.org:19999',
-      'stratum+tcp://etc.2miners.com:1010',
-      'stratum+tcp://etc-eu.f2pool.com:8118',
-      'stratum+tcp://etc-us.f2pool.com:8118',
-      'stratum+tcp://etc.ethermine.org:4444'
-    ];
+    const bestPool = getBestPool();
     
     return {
       walletAddress: walletManager.getActualMiningWallet(),
-      poolUrl: elitePools[0], // Use top-tier pool for maximum efficiency
+      poolUrl: bestPool.url,
       workerName: `elite-${Date.now()}`,
       chain: 'etc',
       intensity: 100, // Maximum intensity
