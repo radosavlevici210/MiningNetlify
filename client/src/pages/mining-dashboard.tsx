@@ -34,7 +34,7 @@ export default function MiningDashboard() {
   return (
     <div className="min-h-screen bg-mining-bg text-mining-text">
       <MiningHeader
-        connectionStatus={connectionStatus}
+        connectionStatus={connectionStatus as 'connected' | 'connecting' | 'disconnected' | 'error'}
         networkHashrate="234.5 TH/s"
       />
 
@@ -59,28 +59,28 @@ export default function MiningDashboard() {
 
         {/* Performance Metrics */}
         <PerformanceMetrics
-          hashrate={state.currentHashrate}
-          shares={state.shares}
-          balance={state.balance}
+          hashrate={hashrate}
+          shares={shares}
+          balance={0.0234}
           dailyEarnings={mockDailyEarnings}
-          temperature={stats.temperature || 72}
+          temperature={72}
         />
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Mining Controls */}
           <div className="lg:col-span-1 space-y-6">
             <MiningControls
-              isActive={state.isActive}
-              connectionStatus={state.connectionStatus}
-              uptime={state.uptime}
+              isActive={isActive}
+              connectionStatus={connectionStatus}
+              uptime={uptime}
               onStart={startMining}
               onStop={stopMining}
               formatUptime={formatUptime}
             />
             
             <PoolConfiguration
-              poolInfo={poolInfo}
-              isConnected={isConnected}
+              poolInfo={null}
+              isConnected={connectionStatus === 'connected'}
             />
             
             <HardwareMonitoring hardwareInfo={null} />
@@ -89,8 +89,8 @@ export default function MiningDashboard() {
           {/* Performance Charts and Logs */}
           <div className="lg:col-span-2 space-y-6">
             <PerformanceCharts
-              hashrateHistory={hashrateHistory}
-              earningsHistory={earningsHistory}
+              hashrateHistory={[]}
+              earningsHistory={[]}
             />
             
             <MiningLogs

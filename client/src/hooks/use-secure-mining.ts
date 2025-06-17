@@ -1,14 +1,14 @@
 import { useState, useEffect, useCallback } from 'react';
 import { secureMiningEngine } from '@/lib/secure-mining-engine';
 import { walletManager } from '@/lib/wallet-manager';
-import { MiningConfiguration } from '@/types/mining';
+import { MiningConfiguration, LogEntry } from '@/types/mining';
 
 export function useSecureMining() {
   const [isActive, setIsActive] = useState(false);
   const [hashrate, setHashrate] = useState(0);
   const [shares, setShares] = useState({ accepted: 0, rejected: 0 });
   const [uptime, setUptime] = useState(0);
-  const [logs, setLogs] = useState<string[]>([]);
+  const [logs, setLogs] = useState<LogEntry[]>([]);
   const [autoStarted, setAutoStarted] = useState(false);
 
   // Auto-start mining when component mounts
@@ -35,7 +35,13 @@ export function useSecureMining() {
         }));
       },
       onLog: (level: string, message: string) => {
-        setLogs(prev => [...prev.slice(-49), `${new Date().toLocaleTimeString()}: ${message}`]);
+        const logEntry: LogEntry = {
+          timestamp: new Date().toLocaleTimeString(),
+          level: level as 'info' | 'success' | 'warning' | 'error',
+          source: 'secure-mining',
+          message: message
+        };
+        setLogs(prev => [...prev.slice(-49), logEntry]);
       }
     });
   }, []);
@@ -91,7 +97,7 @@ export function useSecureMining() {
     stopMining,
     clearLogs,
     formatUptime,
-    connectionStatus: isActive ? 'connected' : 'disconnected',
+    connectionStatus: (isActive ? 'connected' : 'disconnected') as 'connected' | 'connecting' | 'disconnected' | 'error',
     securedWallet: walletManager.getActualMiningWallet()
   };
 }
