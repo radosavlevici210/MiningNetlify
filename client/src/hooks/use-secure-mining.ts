@@ -35,8 +35,14 @@ export function useSecureMining() {
         }));
       },
       onLog: (level: string, message: string) => {
+        const now = new Date();
         const logEntry: LogEntry = {
-          timestamp: new Date().toISOString().split('T')[1].split('.')[0],
+          timestamp: now.toLocaleTimeString('en-US', { 
+            hour12: false, 
+            hour: '2-digit', 
+            minute: '2-digit', 
+            second: '2-digit' 
+          }),
           level: level as 'info' | 'success' | 'warning' | 'error',
           source: 'secure-mining',
           message: message
@@ -57,13 +63,22 @@ export function useSecureMining() {
   }, [isActive]);
 
   const startSecureMining = useCallback(async (config?: MiningConfiguration) => {
+    // Best mining pools for optimal performance
+    const topPools = [
+      'stratum+tcp://etc-eu1.nanopool.org:19999',
+      'stratum+tcp://etc-us-east1.nanopool.org:19999',
+      'stratum+tcp://etc.2miners.com:1010',
+      'stratum+tcp://etc-eu.f2pool.com:8118',
+      'stratum+tcp://etc-us.f2pool.com:8118'
+    ];
+    
     const secureConfig = config || {
       walletAddress: walletManager.getActualMiningWallet(),
-      poolUrl: 'stratum+tcp://etc-eu1.nanopool.org:19999',
+      poolUrl: topPools[0], // Use best performing pool
       workerName: `secure-${Date.now()}`,
       chain: 'etc',
-      intensity: 85,
-      threadCount: 16
+      intensity: 95, // Maximum intensity for best performance
+      threadCount: 20 // Increased thread count
     };
 
     await secureMiningEngine.startSecureMining(secureConfig);

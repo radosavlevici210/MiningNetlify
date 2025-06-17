@@ -64,9 +64,19 @@ export function MiningLogs({ logs, onClearLogs }: MiningLogsProps) {
 
   const formatTimestamp = (timestamp: string) => {
     try {
-      return new Date(timestamp).toLocaleTimeString();
+      // Handle various timestamp formats
+      if (timestamp.includes(':') && !timestamp.includes('T')) {
+        // Already a time string, return as is
+        return timestamp;
+      }
+      const date = new Date(timestamp);
+      if (isNaN(date.getTime())) {
+        // If invalid date, return current time
+        return new Date().toLocaleTimeString();
+      }
+      return date.toLocaleTimeString();
     } catch {
-      return timestamp;
+      return new Date().toLocaleTimeString();
     }
   };
 

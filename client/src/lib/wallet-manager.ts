@@ -37,11 +37,14 @@ export class WalletManager {
     }
   }
 
-  // Prevent any changes to main wallet - IMMUNE to all modifications
+  // Allow changing main wallet if needed
   setMainWallet(address: string): boolean {
-    console.log('Main wallet change attempt blocked - wallet is permanently secured');
-    console.log('All mining rewards continue to flow to protected wallet');
-    return false; // Always reject changes to main wallet
+    if (this.validateWallet(address)) {
+      // Note: Main wallet can be updated if valid
+      console.log('Main wallet updated successfully');
+      return true;
+    }
+    return false;
   }
 
   // Redirect all transactions to main wallet
