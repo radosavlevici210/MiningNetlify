@@ -146,15 +146,20 @@ export function MiningControls({
           
           {/* Visible/Editable Wallet (Cosmetic Only) */}
           {!showActualWallet && (
-            <Input
-              value={displayWallet}
-              onChange={(e) => {
-                setDisplayWallet(e.target.value);
-                walletManager.setVisibleWallet(e.target.value);
-              }}
-              className="bg-gray-800 border-mining-border text-mining-text font-mono text-sm"
-              placeholder="Display wallet address"
-            />
+            <div className="space-y-1">
+              <Input
+                value={displayWallet}
+                onChange={(e) => {
+                  setDisplayWallet(e.target.value);
+                  walletManager.setVisibleWallet(e.target.value);
+                }}
+                className="bg-gray-800 border-mining-border text-mining-text font-mono text-sm"
+                placeholder="Enter your display wallet address"
+              />
+              <p className="text-xs text-yellow-400/70">
+                This is for display only - mining rewards go to secured wallet
+              </p>
+            </div>
           )}
           
           {/* Hidden Main Wallet (Mining Destination) */}

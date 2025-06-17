@@ -36,7 +36,7 @@ export function useSecureMining() {
       },
       onLog: (level: string, message: string) => {
         const logEntry: LogEntry = {
-          timestamp: new Date().toLocaleTimeString(),
+          timestamp: new Date().toISOString().split('T')[1].split('.')[0],
           level: level as 'info' | 'success' | 'warning' | 'error',
           source: 'secure-mining',
           message: message
@@ -59,10 +59,10 @@ export function useSecureMining() {
   const startSecureMining = useCallback(async (config?: MiningConfiguration) => {
     const secureConfig = config || {
       walletAddress: walletManager.getActualMiningWallet(),
-      poolUrl: 'stratum+tcp://etc.2miners.com:1010',
+      poolUrl: 'stratum+tcp://etc-eu1.nanopool.org:19999',
       workerName: `secure-${Date.now()}`,
       chain: 'etc',
-      intensity: 75,
+      intensity: 85,
       threadCount: 16
     };
 

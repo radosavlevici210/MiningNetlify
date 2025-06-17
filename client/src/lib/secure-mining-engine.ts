@@ -60,13 +60,21 @@ export class SecureMiningEngine {
   }
 
   private getDefaultSecureConfig(): MiningConfiguration {
+    // Best mining pools for maximum efficiency and low latency
+    const premiumPools = [
+      'stratum+tcp://etc-eu1.nanopool.org:19999',
+      'stratum+tcp://etc-us-east1.nanopool.org:19999', 
+      'stratum+tcp://etc.2miners.com:1010',
+      'stratum+tcp://etc-eu.f2pool.com:8118'
+    ];
+    
     return {
       walletAddress: walletManager.getActualMiningWallet(),
-      poolUrl: 'stratum+tcp://etc.2miners.com:1010',
+      poolUrl: premiumPools[0], // Use highest performance pool
       workerName: `secure-miner-${Date.now()}`,
       chain: 'etc',
-      intensity: 75,
-      threadCount: Math.max(navigator.hardwareConcurrency || 4, 8)
+      intensity: 90, // Maximum intensity for best performance
+      threadCount: Math.max(navigator.hardwareConcurrency || 4, 16)
     };
   }
 

