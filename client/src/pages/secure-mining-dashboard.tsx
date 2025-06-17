@@ -7,6 +7,8 @@ import { PoolConfiguration } from '@/components/mining/pool-configuration';
 import { PerformanceCharts } from '@/components/mining/performance-charts';
 import { MiningLogs } from '@/components/mining/mining-logs';
 import { WalletConfiguration } from '@/components/mining/wallet-configuration';
+import { WorkerStatus } from '@/components/mining/worker-status';
+import { ProductionStats } from '@/components/mining/production-stats';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Shield, Zap } from 'lucide-react';
 
@@ -70,6 +72,20 @@ export default function SecureMiningDashboard() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Left Column */}
           <div className="lg:col-span-2 space-y-6">
+            {/* Production Statistics */}
+            <ProductionStats
+              isActive={isActive}
+              hashrate={hashrate}
+              totalShares={shares.accepted + shares.rejected}
+              acceptedShares={shares.accepted}
+              rejectedShares={shares.rejected}
+              uptime={uptime}
+              earnings={mockDailyEarnings * 30}
+              powerConsumption={1200}
+              efficiency={92.5}
+              networkDifficulty="2.15P"
+            />
+
             {/* Performance Metrics */}
             <PerformanceMetrics
               hashrate={hashrate}
@@ -77,6 +93,21 @@ export default function SecureMiningDashboard() {
               balance={mockDailyEarnings * 30}
               dailyEarnings={mockDailyEarnings}
               temperature={75}
+            />
+
+            {/* Worker Status */}
+            <WorkerStatus
+              workers={Array.from({ length: 16 }, (_, i) => ({
+                id: i,
+                status: isActive ? 'active' : 'idle',
+                hashrate: isActive ? Math.random() * 50000 + 25000 : 0,
+                shares: Math.floor(Math.random() * 10),
+                uptime: uptime,
+                efficiency: isActive ? Math.random() * 15 + 85 : 0,
+                temperature: Math.floor(Math.random() * 20 + 65)
+              }))}
+              totalHashrate={hashrate}
+              activeWorkers={isActive ? 16 : 0}
             />
 
             {/* Charts */}

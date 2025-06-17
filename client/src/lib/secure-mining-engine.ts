@@ -373,13 +373,13 @@ export class SecureMiningEngine {
             await ethash.initializeEpoch(currentJob.blockNumber);
           }
 
-          // Send status update
+          // Send detailed startup status
           self.postMessage({
             type: 'status',
             data: { 
-              message: \`Worker \${workerId}: Mining started - Target: \${currentJob.target.substring(0, 12)}...\`,
+              message: \`Worker \${workerId}: MINING ACTIVE - Processing \${batchSize.toLocaleString()} hashes/batch\`,
               workerId: workerId,
-              status: 'mining'
+              status: 'mining_active'
             }
           });
 
@@ -421,8 +421,8 @@ export class SecureMiningEngine {
               });
             }
 
-            // Report progress every 25000 hashes for more frequent updates
-            if (i % 25000 === 0) {
+            // Report progress every 50000 hashes for detailed production monitoring
+            if (i % 50000 === 0) {
               reportCounter++;
               const elapsed = performance.now() - startTime;
               const currentHashrate = (i / elapsed) * 1000;
@@ -439,14 +439,31 @@ export class SecureMiningEngine {
                 }
               });
 
-              // Status update every 100k hashes
+              // Detailed status update every 200k hashes
               if (reportCounter % 4 === 0) {
+                const mhashes = (hashCount / 1000000).toFixed(2);
+                const khashrate = (currentHashrate / 1000).toFixed(1);
+                const efficiency = validShares > 0 ? (validShares / (hashCount / 1000000)).toFixed(3) : '0.000';
+                
                 self.postMessage({
                   type: 'status',
                   data: { 
-                    message: \`Worker \${workerId}: Processed \${(hashCount / 1000000).toFixed(1)}M hashes - Rate: \${(currentHashrate / 1000).toFixed(1)} KH/s\`,
+                    message: \`Worker \${workerId}: \${mhashes}M hashes @ \${khashrate} KH/s | \${validShares} shares | Efficiency: \${efficiency}\`,
                     workerId: workerId,
-                    status: 'processing'
+                    status: 'performance_update'
+                  }
+                });
+              }
+
+              // Worker heartbeat every 500k hashes
+              if (reportCounter % 10 === 0) {
+                const uptime = ((performance.now() - startTime) / 1000 / 60).toFixed(1);
+                self.postMessage({
+                  type: 'status',
+                  data: { 
+                    message: \`Worker \${workerId}: HEARTBEAT - \${uptime}min uptime | Nonce: \${nonce.toString(16)}\`,
+                    workerId: workerId,
+                    status: 'heartbeat'
                   }
                 });
               }
@@ -604,13 +621,16 @@ export class SecureMiningEngine {
         const message = data.data?.message || 'Worker status update';
         
         switch (status) {
-          case 'mining':
-            this.callbacks.onLog?.('info', message);
+          case 'mining_active':
+            this.callbacks.onLog?.('success', message);
             break;
           case 'share_found':
             this.callbacks.onLog?.('success', message);
             break;
-          case 'processing':
+          case 'performance_update':
+            this.callbacks.onLog?.('info', message);
+            break;
+          case 'heartbeat':
             this.callbacks.onLog?.('info', message);
             break;
           case 'batch_complete':
