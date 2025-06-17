@@ -1,8 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { miningStateManager } from '@/lib/mining/mining-state';
-import { ProductionMiningEngine } from '@/lib/mining/production-mining-engine';
-import { RealStratumClient } from '@/lib/mining/real-stratum-client';
-import { web3Integration } from '@/lib/mining/web3-integration';
+import { secureMiningEngine } from '@/lib/secure-mining-engine';
+import { walletManager } from '@/lib/wallet-manager';
 import { MiningState, MiningConfiguration, MiningStats, LogEntry, ChartDataPoint } from '@/types/mining';
 
 export function useMining() {
@@ -12,10 +11,9 @@ export function useMining() {
   const [hashrateHistory, setHashrateHistory] = useState<ChartDataPoint[]>(miningStateManager.getHashrateHistory());
   const [earningsHistory, setEarningsHistory] = useState<ChartDataPoint[]>(miningStateManager.getEarningsHistory());
   
-  const [miningEngine] = useState(() => new ProductionMiningEngine());
-  const [stratumClient, setStratumClient] = useState<RealStratumClient | null>(null);
   const [isInitialized, setIsInitialized] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [autoMiningActive, setAutoMiningActive] = useState(false);
 
   // Subscribe to state changes
   useEffect(() => {

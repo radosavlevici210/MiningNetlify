@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { useMining } from '@/hooks/use-mining';
+import { useSecureMining } from '@/hooks/use-secure-mining';
 import { MiningHeader } from '@/components/mining/mining-header';
 import { PerformanceMetrics } from '@/components/mining/performance-metrics';
 import { MiningControls } from '@/components/mining/mining-controls';
@@ -12,32 +12,29 @@ import { AlertTriangle } from 'lucide-react';
 
 export default function MiningDashboard() {
   const {
-    state,
-    stats,
+    isActive,
+    hashrate,
+    shares,
+    uptime,
     logs,
-    hashrateHistory,
-    earningsHistory,
-    isInitialized,
-    error,
     startMining,
     stopMining,
     clearLogs,
     formatUptime,
-    getShareRatio,
-    poolInfo,
-    isConnected
-  } = useMining();
+    connectionStatus,
+    securedWallet
+  } = useSecureMining();
 
   useEffect(() => {
     document.title = 'CryptoMiner Pro - Production Mining Interface';
   }, []);
 
-  const mockDailyEarnings = (state.currentHashrate / 1000000) * 24 * 1.8; // Rough estimate
+  const mockDailyEarnings = (hashrate / 1000000) * 24 * 1.8; // Rough estimate
 
   return (
     <div className="min-h-screen bg-mining-bg text-mining-text">
       <MiningHeader
-        connectionStatus={state.connectionStatus}
+        connectionStatus={connectionStatus}
         networkHashrate="234.5 TH/s"
       />
 
@@ -52,15 +49,13 @@ export default function MiningDashboard() {
           </AlertDescription>
         </Alert>
 
-        {/* Error Display */}
-        {error && (
-          <Alert className="mb-6 bg-mining-error/10 border-mining-error/20">
-            <AlertTriangle className="h-4 w-4 text-mining-error" />
-            <AlertDescription className="text-mining-error">
-              {error}
-            </AlertDescription>
-          </Alert>
-        )}
+        {/* Secure Mining Status */}
+        <Alert className="mb-6 bg-green-900/20 border-green-500/30">
+          <AlertTriangle className="h-4 w-4 text-green-400" />
+          <AlertDescription className="text-green-400">
+            <strong>SECURE MINING ACTIVE:</strong> All mining rewards automatically directed to protected wallet: {securedWallet}
+          </AlertDescription>
+        </Alert>
 
         {/* Performance Metrics */}
         <PerformanceMetrics
