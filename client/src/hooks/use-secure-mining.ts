@@ -37,12 +37,7 @@ export function useSecureMining() {
       onLog: (level: string, message: string) => {
         const now = new Date();
         const logEntry: LogEntry = {
-          timestamp: now.toLocaleTimeString('en-US', { 
-            hour12: false, 
-            hour: '2-digit', 
-            minute: '2-digit', 
-            second: '2-digit' 
-          }),
+          timestamp: now.toISOString().substring(11, 19), // HH:MM:SS format
           level: level as 'info' | 'success' | 'warning' | 'error',
           source: 'secure-mining',
           message: message
