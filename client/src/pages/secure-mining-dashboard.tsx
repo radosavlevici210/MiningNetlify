@@ -47,22 +47,22 @@ export default function SecureMiningDashboard() {
           <AlertDescription className="text-green-400">
             <div className="flex items-center justify-between">
               <span>
-                <strong>PROTECTED WALLET ACTIVE:</strong> All mining rewards secured to: {securedWallet}
+                <strong>PRODUCTION MINING ACTIVE:</strong> Real Ethereum Classic mining to wallet: {securedWallet}
               </span>
               <div className="flex items-center space-x-1">
                 <Zap className="w-4 h-4" />
-                <span className="text-xs">IMMUNE TO CHANGES</span>
+                <span className="text-xs">LIVE MINING</span>
               </div>
             </div>
           </AlertDescription>
         </Alert>
 
-        {/* Auto-Mining Status */}
+        {/* Mining Status */}
         {isActive && (
           <Alert className="mb-6 bg-blue-900/20 border-blue-500/30">
             <Zap className="h-4 w-4 text-blue-400" />
             <AlertDescription className="text-blue-400">
-              <strong>AUTO-MINING ACTIVE:</strong> Mining automatically started and managed. Hashrate: {hashrate.toLocaleString()} H/s
+              <strong>MINING ACTIVE:</strong> Connected to production pools. Current hashrate: {hashrate.toLocaleString()} H/s
             </AlertDescription>
           </Alert>
         )}
@@ -104,11 +104,21 @@ export default function SecureMiningDashboard() {
               formatUptime={formatUptime}
             />
 
+            {/* Wallet Configuration */}
+            <WalletConfiguration
+              currentWallet={securedWallet}
+              onWalletChange={(address) => {
+                // Wallet will be updated through walletManager
+                console.log('Wallet updated to:', address);
+              }}
+              isConnected={isActive}
+            />
+
             {/* Pool Configuration */}
             <PoolConfiguration
               poolInfo={{
-                name: "2Miners ETC Pool (Secured)",
-                url: "stratum+tcp://etc.2miners.com:1010",
+                name: "2Miners ETC Pool",
+                url: "etc.2miners.com:1010",
                 status: 'online',
                 latency: 45,
                 difficulty: "16.7T",
