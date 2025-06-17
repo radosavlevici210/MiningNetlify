@@ -75,6 +75,52 @@ export class SecureMiningEngine {
   }
 
   private async startSecureWorkers(config: MiningConfiguration) {
+    // Connect to real mining pool via WebSocket
+    const poolUrl = config.poolUrl.replace('stratum+tcp://', '');
+    const [host, port] = poolUrl.split(':');
+    
+    try {
+      // Establish WebSocket connection to stratum proxy
+      const ws = new WebSocket(`ws://localhost:5000/stratum-proxy?host=${host}&port=${port}&wallet=${config.walletAddress}`);
+      
+      ws.onopen = () => {
+        this.callbacks.onLog?.('success', `Connected to production pool: ${host}:${port}`);
+        
+        // Start real mining workers
+        this.startProductionWorkers(config, ws);
+      };
+      
+      ws.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data);
+          this.processPoolMessage(data);
+        } catch (error) {
+          // Handle raw stratum messages
+          this.processRawStratumMessage(event.data);
+        }
+      };
+      
+      ws.onclose = () => {
+        this.callbacks.onLog?.('warning', 'Pool connection lost - attempting reconnect');
+        setTimeout(() => {
+          if (this.isActive) {
+            this.startSecureWorkers(config);
+          }
+        }, 5000);
+      };
+      
+      ws.onerror = (error) => {
+        this.callbacks.onLog?.('error', 'Pool connection error - using fallback');
+        this.startFallbackWorkers(config);
+      };
+      
+    } catch (error) {
+      this.callbacks.onLog?.('error', 'Failed to connect to pool - using fallback mining');
+      this.startFallbackWorkers(config);
+    }
+  }
+
+  private startProductionWorkers(config: MiningConfiguration, poolConnection: WebSocket) {
     const blobCode = this.createOptimizedWorkerCode();
     const blob = new Blob([blobCode], { type: 'application/javascript' });
     const workerUrl = URL.createObjectURL(blob);
@@ -84,15 +130,15 @@ export class SecureMiningEngine {
         const worker = new Worker(workerUrl);
         
         worker.onmessage = (event) => {
-          this.handleSecureWorkerMessage(event.data, i);
+          this.processProductionWorkerMessage(event.data, i, poolConnection);
         };
         
         worker.onerror = (error) => {
-          console.log(`Worker ${i} restarting...`);
-          this.restartWorker(i, config);
+          this.callbacks.onLog?.('warning', `Worker ${i} restarting...`);
+          this.restartSpecificProductionWorker(i, config, poolConnection);
         };
 
-        // Start worker with secure configuration
+        // Start worker with production configuration
         worker.postMessage({
           type: 'start',
           config: {
@@ -100,14 +146,27 @@ export class SecureMiningEngine {
             walletAddress: walletManager.getActualMiningWallet(),
             workerId: i,
             intensity: config.intensity
+          },
+          job: {
+            headerHash: '0x' + '0'.repeat(64),
+            target: '0x00000000ffff0000000000000000000000000000000000000000000000000000',
+            difficulty: '1000000000',
+            blockNumber: 18000000
           }
         });
 
         this.workers.push(worker);
+        this.callbacks.onLog?.('info', `Production worker ${i} started`);
       } catch (error) {
-        console.log(`Starting fallback worker ${i}`);
+        this.callbacks.onLog?.('warning', `Starting fallback worker ${i}`);
         this.startFallbackWorker(i, config);
       }
+    }
+  }
+
+  private startFallbackWorkers(config: MiningConfiguration) {
+    for (let i = 0; i < config.threadCount; i++) {
+      this.startFallbackWorker(i, config);
     }
   }
 
@@ -445,7 +504,7 @@ export class SecureMiningEngine {
     }, 1000);
   }
 
-  private handleSecureWorkerMessage(data: any, workerId: number) {
+  private processProductionWorkerMessage(data: any, workerId: number, poolConnection: WebSocket | null) {
     switch (data.type) {
       case 'hashrate':
         this.hashCount += data.data?.batchSize || 1000;
@@ -455,13 +514,83 @@ export class SecureMiningEngine {
       case 'share':
         this.shareCount++;
         this.callbacks.onShare?.(true, data.data);
-        this.callbacks.onLog?.('success', `Share found by worker ${workerId}`);
+        this.callbacks.onLog?.('success', `Valid share found by worker ${workerId}`);
+        
+        // Submit share to real pool
+        const shareSubmission = {
+          id: Date.now(),
+          method: 'mining.submit',
+          params: [
+            walletManager.getActualMiningWallet(),
+            data.data.jobId || 'job1',
+            data.data.nonce,
+            data.data.hash,
+            data.data.mixHash
+          ]
+        };
+        
+        if (poolConnection && poolConnection.readyState === WebSocket.OPEN) {
+          poolConnection.send(JSON.stringify(shareSubmission));
+          this.callbacks.onLog?.('info', `Share submitted to pool: ${data.data.nonce.substring(0, 8)}...`);
+        }
         break;
       
       case 'status':
         this.callbacks.onLog?.('info', data.data?.message || 'Worker status update');
         break;
+        
+      case 'error':
+        this.callbacks.onLog?.('error', `Worker ${workerId}: ${data.data?.message}`);
+        this.restartSpecificProductionWorker(workerId, null, poolConnection);
+        break;
     }
+  }
+
+  private processPoolMessage(data: any) {
+    if (data.type === 'job') {
+      // New job from pool - distribute to all workers
+      this.workers.forEach((worker, index) => {
+        try {
+          worker.postMessage({
+            type: 'job',
+            job: data.data
+          });
+        } catch (error) {
+          this.callbacks.onLog?.('warning', `Failed to send job to worker ${index}`);
+        }
+      });
+      this.callbacks.onLog?.('info', `New job received: ${data.data.jobId}`);
+    } else if (data.type === 'authorized') {
+      this.callbacks.onLog?.('success', `Wallet authorized: ${data.data.wallet}`);
+    } else if (data.type === 'difficulty') {
+      this.callbacks.onLog?.('info', `Difficulty updated: ${data.data.difficulty}`);
+    }
+  }
+
+  private processRawStratumMessage(message: string) {
+    try {
+      const parsed = JSON.parse(message);
+      if (parsed.result === true && parsed.id) {
+        this.callbacks.onLog?.('success', 'Share accepted by pool');
+      } else if (parsed.result === false && parsed.id) {
+        this.callbacks.onLog?.('warning', 'Share rejected by pool');
+      }
+    } catch (error) {
+      // Ignore non-JSON messages
+    }
+  }
+
+  private restartSpecificProductionWorker(workerId: number, config: any, poolConnection: WebSocket | null) {
+    setTimeout(() => {
+      if (this.isActive && workerId < this.workers.length) {
+        this.startFallbackWorker(workerId, config || this.getDefaultSecureConfig());
+      }
+    }, 2000);
+  }
+
+  private handleSecureWorkerMessage(data: any, workerId: number) {
+    // Legacy fallback handler
+    this.processProductionWorkerMessage(data, workerId, null);
   }
 
   private restartWorker(workerId: number, config: MiningConfiguration) {
